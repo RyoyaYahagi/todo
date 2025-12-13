@@ -261,7 +261,10 @@ export const supabaseDb = {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('認証が必要です');
 
+        console.log('saveScheduledTasks called with:', tasks.length, 'tasks');
+
         for (const task of tasks) {
+            console.log('Saving scheduled task:', task.id, task.title);
             const { error } = await supabase
                 .from('scheduled_tasks')
                 .upsert({
@@ -276,7 +279,11 @@ export const supabaseDb = {
                     created_at: new Date(task.createdAt).toISOString()
                 });
 
-            if (error) throw error;
+            if (error) {
+                console.error('Error saving scheduled task:', error);
+                throw error;
+            }
+            console.log('Saved scheduled task successfully:', task.id);
         }
     },
 
