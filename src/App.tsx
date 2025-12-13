@@ -5,8 +5,7 @@ import { TaskList } from './components/TaskList';
 import { TaskForm } from './components/TaskForm';
 import { Calendar } from './components/Calendar';
 import { Settings } from './components/Settings';
-import { scheduleTasksForHoliday } from './lib/scheduler';
-import { isSameDay } from 'date-fns';
+import { scheduleTasksAcrossHolidays } from './lib/scheduler';
 
 function App() {
   const {
@@ -39,38 +38,22 @@ function App() {
   };
 
   // Auto-scheduler logic:
-  // When 'events' or 'tasks' change, check if today needs scheduling?
-  // Or maybe only schedule when explicitly requested or just-in-time?
-  // Requirement: "休日には必ずタスクを割り当てる"
-  // Let's do a check on mount/update: If today is holiday and less than 3 tasks scheduled, schedule more.
+  // タスクを複数の休日に分配してスケジュールする
+  // - 今日が休日 → 今日 + 次の休日
+  // - 今日が休日ではない → 次の休日 + 次の次の休日
+  // - 各休日には最大3件まで
+  // - 一度スケジュールしたタスクは再スケジュールしない
   useEffect(() => {
     if (loading) return;
 
     const today = new Date();
-    // Check if today already has scheduled tasks
-    const todayTasks = scheduledTasks.filter(t => isSameDay(new Date(t.scheduledTime), today));
 
-    // 今日のタスクが3件未満の場合、追加でスケジュールする
-    if (todayTasks.length < 3) {
-      // 既にスケジュール済みのタスクIDを取得
-      const scheduledTaskIds = new Set(todayTasks.map(t => t.id));
+    // 未スケジュールのタスクがあれば、複数の休日に分配してスケジュール
+    const newSchedule = scheduleTasksAcrossHolidays(tasks, events, scheduledTasks, today);
 
-      // まだスケジュールされていないタスクのみを対象にする
-      const unscheduledTasks = tasks.filter(t => !scheduledTaskIds.has(t.id));
-
-      // 不足分だけスケジュールする
-      const tasksNeeded = 3 - todayTasks.length;
-      const tasksToAdd = unscheduledTasks
-        .sort((a, b) => b.priority - a.priority)
-        .slice(0, tasksNeeded);
-
-      if (tasksToAdd.length > 0) {
-        const newSchedule = scheduleTasksForHoliday(today, tasksToAdd, events);
-        if (newSchedule.length > 0) {
-          console.log("Auto-scheduling additional tasks for today:", newSchedule);
-          saveScheduledTasks([...scheduledTasks, ...newSchedule]);
-        }
-      }
+    if (newSchedule.length > 0) {
+      console.log("Auto-scheduling tasks across holidays:", newSchedule);
+      saveScheduledTasks([...scheduledTasks, ...newSchedule]);
     }
   }, [loading, tasks, events, scheduledTasks]);
 
