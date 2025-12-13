@@ -7,9 +7,10 @@ interface TaskListProps {
     scheduledTasks: ScheduledTask[];
     onDelete: (id: string) => void;
     onComplete: (id: string) => void;
+    onDeleteScheduled: (id: string) => void;
 }
 
-export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDelete, onComplete }) => {
+export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDelete, onComplete, onDeleteScheduled }) => {
     // Get today's scheduled tasks
     const today = new Date();
     const todayScheduled = scheduledTasks.filter(st => isSameDay(new Date(st.scheduledTime), today));
@@ -50,6 +51,15 @@ export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDel
                                     <span className={`priority-badge p-${task.priority}`}>P{task.priority}</span>
                                     <span className={`task-title ${task.isCompleted ? 'strikethrough' : ''}`}>{task.title}</span>
                                 </div>
+                                {task.isCompleted && (
+                                    <button
+                                        className="btn-delete"
+                                        onClick={() => onDeleteScheduled(task.id)}
+                                        aria-label="削除"
+                                    >
+                                        ×
+                                    </button>
+                                )}
                             </li>
                         ))}
                     </ul>

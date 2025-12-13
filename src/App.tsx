@@ -20,6 +20,7 @@ function App() {
     updateSettings,
     saveEvents,
     saveScheduledTasks,
+    deleteScheduledTask,
     exportData,
     importData
   } = useIndexedDB();
@@ -79,6 +80,7 @@ function App() {
               scheduledTasks={scheduledTasks}
               onDelete={deleteTask}
               onComplete={completeTask}
+              onDeleteScheduled={deleteScheduledTask}
             />
           </div>
         )}
