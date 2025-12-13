@@ -44,8 +44,14 @@ export const Settings: React.FC<SettingsProps> = ({
                     });
                     console.log('イベントタイプ別:', typeCount);
 
+                    const statusMessage = `✅ 成功: ${events.length}件のイベントを読み込みました（夜勤${typeCount['夜勤']}件, 日勤${typeCount['日勤']}件, 休み${typeCount['休み']}件, その他${typeCount['その他']}件）`;
+
                     onSaveEvents(events);
-                    setImportStatus(`✅ 成功: ${events.length}件のイベントを読み込みました（夜勤${typeCount['夜勤']}件, 日勤${typeCount['日勤']}件, 休み${typeCount['休み']}件, その他${typeCount['その他']}件）`);
+
+                    // 親コンポーネントの再レンダリング後にステータスを設定
+                    setTimeout(() => {
+                        setImportStatus(statusMessage);
+                    }, 100);
                 } catch (err) {
                     console.error('ICSパースエラー:', err);
                     setImportStatus(`❌ エラー: ファイルの読み込みに失敗しました - ${err instanceof Error ? err.message : '不明なエラー'}`);
