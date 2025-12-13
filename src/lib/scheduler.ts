@@ -94,6 +94,8 @@ export function scheduleTasksForHoliday(
     for (const task of tasksToSchedule) {
         scheduledTasks.push({
             ...task,
+            id: crypto.randomUUID(), // ScheduledTask独自のID
+            taskId: task.id, // 元タスクへの参照
             scheduledTime: currentStartTime.getTime(),
             isCompleted: false
         });
@@ -175,8 +177,9 @@ export function scheduleTasksAcrossHolidays(
     scheduledTasks: ScheduledTask[],
     today: Date
 ): ScheduledTask[] {
-    // 既にスケジュール済みのタスクIDを取得
-    const scheduledTaskIds = new Set(scheduledTasks.map(t => t.id));
+    // 既にスケジュール済みのタスクID（元タスクのID）を取得
+    // taskIdフィールドがない既存データの後方互換性のため、idをフォールバックとして使用
+    const scheduledTaskIds = new Set(scheduledTasks.map(t => t.taskId || t.id));
 
     // まだスケジュールされていないタスクのみを対象にする
     const unscheduledTasks = tasks.filter(t => !scheduledTaskIds.has(t.id));
