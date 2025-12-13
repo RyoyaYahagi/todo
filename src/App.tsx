@@ -29,6 +29,14 @@ function App() {
   // Activate notifications hook
   useNotifications(settings, tasks, events, scheduledTasks, saveScheduledTasks);
 
+  // Complete a scheduled task
+  const completeTask = (id: string) => {
+    const updated = scheduledTasks.map(t =>
+      t.id === id ? { ...t, isCompleted: !t.isCompleted } : t
+    );
+    saveScheduledTasks(updated);
+  };
+
   // Auto-scheduler logic:
   // When 'events' or 'tasks' change, check if today needs scheduling?
   // Or maybe only schedule when explicitly requested or just-in-time?
@@ -66,8 +74,12 @@ function App() {
           <div className="tab-content fade-in">
             <TaskForm onAdd={addTask} />
             <div className="section-divider"></div>
-            <h3>タスク一覧</h3>
-            <TaskList tasks={tasks} onDelete={deleteTask} />
+            <TaskList
+              tasks={tasks}
+              scheduledTasks={scheduledTasks}
+              onDelete={deleteTask}
+              onComplete={completeTask}
+            />
           </div>
         )}
 
