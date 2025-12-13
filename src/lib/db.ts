@@ -112,6 +112,11 @@ export const db = {
         return db.getAll('scheduledTasks');
     },
 
+    async deleteScheduledTask(id: string): Promise<void> {
+        const db = await initDB();
+        await db.delete('scheduledTasks', id);
+    },
+
     async exportData(): Promise<string> {
         const db = await initDB();
         const tasks = await db.getAll('tasks');

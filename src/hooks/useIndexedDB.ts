@@ -65,6 +65,11 @@ export function useIndexedDB() {
         await refreshData();
     };
 
+    const deleteScheduledTask = async (id: string) => {
+        await db.deleteScheduledTask(id);
+        await refreshData();
+    };
+
     const updateSettings = async (newSettings: AppSettings) => {
         await db.saveSettings(newSettings);
         setSettings(newSettings);
@@ -91,6 +96,7 @@ export function useIndexedDB() {
         deleteTask,
         saveEvents,
         saveScheduledTasks,
+        deleteScheduledTask,
         updateSettings,
         exportData,
         importData
