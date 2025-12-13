@@ -32,15 +32,29 @@ export const Settings: React.FC<SettingsProps> = ({
             const content = event.target?.result as string;
             if (content) {
                 try {
+                    console.log('ICS読み込み開始: ファイルサイズ =', content.length, 'bytes');
                     const parser = new IcsParser(content);
                     const events = parser.parse();
+                    console.log('ICSパース完了: イベント数 =', events.length);
+
+                    // イベントタイプ別にカウント
+                    const typeCount = { '夜勤': 0, '日勤': 0, '休み': 0, 'その他': 0 };
+                    events.forEach(ev => {
+                        typeCount[ev.eventType]++;
+                    });
+                    console.log('イベントタイプ別:', typeCount);
+
                     onSaveEvents(events);
-                    setImportStatus(`✅ 成功: ${events.length}件のイベントを読み込みました`);
+                    setImportStatus(`✅ 成功: ${events.length}件のイベントを読み込みました（夜勤${typeCount['夜勤']}件, 日勤${typeCount['日勤']}件, 休み${typeCount['休み']}件, その他${typeCount['その他']}件）`);
                 } catch (err) {
-                    setImportStatus('❌ エラー: ファイルの読み込みに失敗しました');
-                    console.error(err);
+                    console.error('ICSパースエラー:', err);
+                    setImportStatus(`❌ エラー: ファイルの読み込みに失敗しました - ${err instanceof Error ? err.message : '不明なエラー'}`);
                 }
             }
+        };
+        reader.onerror = () => {
+            console.error('FileReaderエラー:', reader.error);
+            setImportStatus('❌ エラー: ファイルの読み取りに失敗しました');
         };
         reader.readAsText(file);
     };
