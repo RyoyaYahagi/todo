@@ -118,7 +118,7 @@ export const supabaseDb = {
 
         const { data, error } = await supabase
             .from('tasks')
-            .select('id, title, priority, created_at, schedule_type, manual_scheduled_time, recurrence')
+            .select('*')
             .eq('user_id', user.id)
             .order('created_at', { ascending: true });
 
@@ -320,7 +320,7 @@ export const supabaseDb = {
 
         const { data, error } = await supabase
             .from('scheduled_tasks')
-            .select('id, task_id, title, priority, scheduled_time, is_completed, notified_at, created_at, schedule_type, manual_scheduled_time, recurrence, recurrence_source_id')
+            .select('*')
             .eq('user_id', user.id)
             .order('scheduled_time', { ascending: true });
 
