@@ -96,6 +96,13 @@ export const Settings: React.FC<SettingsProps> = ({
         const file = e.target.files?.[0];
         if (!file) return;
 
+        // Reset input value to allow re-selecting the same file if needed
+        e.target.value = '';
+
+        if (!window.confirm("⚠️ 警告: データをインポートすると、現在のすべてのデータ（タスク、イベント、設定など）が完全に上書きされ、消去されます。\n\n本当に実行しますか？")) {
+            return;
+        }
+
         const reader = new FileReader();
         reader.onload = async (event) => {
             const content = event.target?.result as string;
