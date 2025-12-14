@@ -12,8 +12,7 @@ interface TaskListProps {
     maxPriority?: number;
 }
 
-// onUpdatePriority, maxPriority は将来的に詳細画面等で使用するが、現在はリスト表示で使用しないためリントエラー回避
-export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDelete, onComplete }) => {
+export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDelete, onComplete, onUpdatePriority, maxPriority = 5 }) => {
     // 日付フォーマッター
     const getTaskDateLabel = (date: Date) => {
         if (isYesterday(date)) return <span className="date-text overdue">昨日 (期限切れ)</span>;
@@ -63,6 +62,16 @@ export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDel
                             </div>
                             <div className="task-meta-clean">
                                 {getTaskDateLabel(new Date(task.scheduledTime))}
+                                <span style={{ margin: '0 0.5rem', color: '#eee' }}>|</span>
+                                <select
+                                    className={`priority-badge p-${Math.min(task.priority, maxPriority)}`}
+                                    value={Math.min(task.priority, maxPriority)}
+                                    onChange={(e) => onUpdatePriority(task.taskId, parseInt(e.target.value) as Priority)}
+                                    style={{ border: 'none', cursor: 'pointer', outline: 'none', fontSize: '0.75rem' }}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    {Array.from({ length: maxPriority }, (_, i) => i + 1).map(p => <option key={p} value={p} style={{ color: 'black' }}>P{p}</option>)}
+                                </select>
                             </div>
                         </div>
                         {/* 優先度変更用（隠し機能的、あるいは控えめに配置） */}
@@ -94,8 +103,18 @@ export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDel
                             </div>
                             <div className="task-meta-clean">
                                 <span className="date-text" style={{ fontSize: '0.8rem', color: '#999' }}>
-                                    未定 (P{task.priority})
+                                    未定
                                 </span>
+                                <span style={{ margin: '0 0.5rem', color: '#eee' }}>|</span>
+                                <select
+                                    className={`priority-badge p-${Math.min(task.priority, maxPriority)}`}
+                                    value={Math.min(task.priority, maxPriority)}
+                                    onChange={(e) => onUpdatePriority(task.id, parseInt(e.target.value) as Priority)}
+                                    style={{ border: 'none', cursor: 'pointer', outline: 'none', fontSize: '0.75rem' }}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    {Array.from({ length: maxPriority }, (_, i) => i + 1).map(p => <option key={p} value={p} style={{ color: 'black' }}>P{p}</option>)}
+                                </select>
                             </div>
                         </div>
                         <button
