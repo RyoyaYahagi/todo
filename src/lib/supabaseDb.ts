@@ -189,10 +189,8 @@ export const supabaseDb = {
                 user_id: user.id,
                 title: task.title,
                 priority: task.priority ?? null,
-                created_at: new Date(task.createdAt).toISOString(),
-                schedule_type: task.scheduleType,
-                manual_scheduled_time: task.manualScheduledTime ? new Date(task.manualScheduledTime).toISOString() : null,
-                recurrence: task.recurrence ?? null
+                created_at: new Date(task.createdAt).toISOString()
+                // 新カラム(schedule_type, manual_scheduled_time, recurrence)はSupabase側に追加後に有効化
             });
 
         if (error) throw error;
