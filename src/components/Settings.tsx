@@ -24,6 +24,7 @@ export const Settings: React.FC<SettingsProps> = ({
     const [webhookTestStatus, setWebhookTestStatus] = useState<string>('');
     const [showIcsHelp, setShowIcsHelp] = useState(false);
     const [showDiscordHelp, setShowDiscordHelp] = useState(false);
+    const [showAdvanced, setShowAdvanced] = useState(false);
 
     const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -94,6 +95,13 @@ export const Settings: React.FC<SettingsProps> = ({
     const handleJsonImport = (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
+
+        // Reset input value to allow re-selecting the same file if needed
+        e.target.value = '';
+
+        if (!window.confirm("⚠️ 警告: データをインポートすると、現在のすべてのデータ（タスク、イベント、設定など）が完全に上書きされ、消去されます。\n\n本当に実行しますか？")) {
+            return;
+        }
 
         const reader = new FileReader();
         reader.onload = async (event) => {
@@ -214,42 +222,148 @@ export const Settings: React.FC<SettingsProps> = ({
                 {webhookTestStatus && <p className="status-msg">{webhookTestStatus}</p>}
 
                 <div className="checkbox-group">
-                    <label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                         <input
                             type="checkbox"
                             checked={settings.notifyOnDayBefore}
                             onChange={(e) => onUpdateSettings({ ...settings, notifyOnDayBefore: e.target.checked })}
                         />
-                        前日 {settings.notifyDayBeforeTime} に通知する
+                        <span>前日</span>
+                        <input
+                            type="time"
+                            value={settings.notifyDayBeforeTime}
+                            onChange={(e) => onUpdateSettings({ ...settings, notifyDayBeforeTime: e.target.value })}
+                            disabled={!settings.notifyOnDayBefore}
+                            className="time-input"
+                            style={{ padding: '4px', borderRadius: '4px', border: '1px solid #ccc' }}
+                        />
+                        <span>に通知する</span>
                     </label>
                 </div>
                 <div className="checkbox-group">
-                    <label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                         <input
                             type="checkbox"
                             checked={settings.notifyBeforeTask}
                             onChange={(e) => onUpdateSettings({ ...settings, notifyBeforeTask: e.target.checked })}
                         />
-                        タスク開始 {settings.notifyBeforeTaskMinutes}分前に通知する
+                        <span>タスク開始</span>
+                        <input
+                            type="number"
+                            min="5"
+                            max="120"
+                            value={settings.notifyBeforeTaskMinutes}
+                            onChange={(e) => onUpdateSettings({ ...settings, notifyBeforeTaskMinutes: parseInt(e.target.value) || 30 })}
+                            disabled={!settings.notifyBeforeTask}
+                            style={{ width: '60px', padding: '4px', borderRadius: '4px', border: '1px solid #ccc' }}
+                        />
+                        <span>分前に通知する</span>
                     </label>
+                </div>
+
+                <div className="section-divider" style={{ margin: '1.5rem 0', borderTop: '1px solid #eee' }} />
+
+                <h4 style={{ marginBottom: '1rem', color: '#555' }}>スケジュール設定</h4>
+
+                <div className="form-group">
+                    <label>タスクの時間間隔（時間）</label>
+                    <select
+                        value={settings.scheduleInterval}
+                        onChange={(e) => onUpdateSettings({ ...settings, scheduleInterval: parseInt(e.target.value) })}
+                        style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', marginLeft: '10px' }}
+                    >
+                        {[1, 2, 3, 4, 5, 6].map(h => (
+                            <option key={h} value={h}>{h}時間</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="form-group" style={{ marginTop: '1rem' }}>
+                    <label>午前の開始時間（日勤/休み）</label>
+                    <select
+                        value={settings.startTimeMorning}
+                        onChange={(e) => onUpdateSettings({ ...settings, startTimeMorning: parseInt(e.target.value) })}
+                        style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', marginLeft: '10px' }}
+                    >
+                        {Array.from({ length: 12 }, (_, i) => i).map(h => (
+                            <option key={h} value={h}>{h}:00</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="form-group" style={{ marginTop: '1rem' }}>
+                    <label>午後の開始時間（夜勤明けなど）</label>
+                    <select
+                        value={settings.startTimeAfternoon}
+                        onChange={(e) => onUpdateSettings({ ...settings, startTimeAfternoon: parseInt(e.target.value) })}
+                        style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', marginLeft: '10px' }}
+                    >
+                        {Array.from({ length: 12 }, (_, i) => i + 12).map(h => (
+                            <option key={h} value={h}>{h}:00</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="form-group" style={{ marginTop: '1rem' }}>
+                    <label>1日の最大タスク数</label>
+                    <select
+                        value={settings.maxTasksPerDay}
+                        onChange={(e) => onUpdateSettings({ ...settings, maxTasksPerDay: parseInt(e.target.value) })}
+                        style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', marginLeft: '10px' }}
+                    >
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                            <option key={n} value={n}>{n}件</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="section-divider" style={{ margin: '1.5rem 0', borderTop: '2px dashed #eee' }} />
+
+                <div className="form-group">
+                    <label>最大優先度 (1〜5)</label>
+                    <select
+                        value={settings.maxPriority || 5}
+                        onChange={(e) => onUpdateSettings({ ...settings, maxPriority: parseInt(e.target.value) })}
+                        style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', marginLeft: '10px' }}
+                    >
+                        {[1, 2, 3, 4, 5].map(n => (
+                            <option key={n} value={n}>{n}</option>
+                        ))}
+                    </select>
+                    <p className="description" style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.2rem' }}>
+                        タスクの優先度の選択肢を制限します。（例: 3に設定するとP1〜P3のみ選択可能）
+                    </p>
                 </div>
             </section>
 
-            {/* データ管理セクション */}
+            {/* 詳細設定セクション（データ管理など） */}
             <section className="settings-section">
-                <h3>💾 データ管理</h3>
-                <p className="description">
-                    タスクや設定をバックアップしたり、別の端末に移行できます。
-                </p>
-                <div className="data-actions">
-                    <button onClick={handleExport} className="btn-primary">📤 バックアップ（エクスポート）</button>
-                    <div className="import-area">
-                        <label className="btn-secondary">
-                            📥 復元（インポート）
-                            <input type="file" accept=".json" onChange={handleJsonImport} style={{ display: 'none' }} />
-                        </label>
-                    </div>
+                <div
+                    className="section-header-toggle"
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                >
+                    <h3>🔧 詳細設定 (データ管理)</h3>
+                    <span style={{ fontSize: '1.2rem' }}>{showAdvanced ? '▲' : '▼'}</span>
                 </div>
+
+                {showAdvanced && (
+                    <div className="advanced-content fade-in" style={{ marginTop: '1rem' }}>
+                        <p className="description">
+                            データのバックアップ（エクスポート）や復元（インポート）を行えます。
+                            通常はクラウドに自動保存されるため操作不要です。
+                        </p>
+                        <div className="data-actions">
+                            <button onClick={handleExport} className="btn-secondary">📤 バックアップ（ファイルに保存）</button>
+                            <div className="import-area">
+                                <label className="btn-secondary" style={{ backgroundColor: '#f0f0f0', color: '#333' }}>
+                                    📥 復元（ファイルから読み込み）
+                                    <input type="file" accept=".json" onChange={handleJsonImport} style={{ display: 'none' }} />
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </section>
         </div>
     );

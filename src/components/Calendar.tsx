@@ -40,20 +40,15 @@ export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks }) =>
     const getDayContent = (day: Date) => {
         const dayEvents = events.filter(e => isSameDay(e.start, day));
         const dayTasks = scheduledTasks.filter(t => isSameDay(new Date(t.scheduledTime), day));
-        const isDayHoliday = isHoliday(day, events); // This checks if day has '休み' or NO events (if we treat no events as holiday per rule?)
-        // Note: The rule "当日に '休み' イベントがある、またはイベントが存在しない場合は休日"
-        // However, if we only loaded partial data, "no events" might be dangerous.
-        // Usually user loads full schedule.
-        // Implementing strictly as requested: "イベントが存在しない場合は休日"
+        const isDayHoliday = isHoliday(day, events);
 
-        // Check if we have ANY events for this day
         const hasAnyEvent = dayEvents.length > 0;
         const isYasumi = dayEvents.some(e => e.eventType === '休み');
 
         let cellClass = 'day-cell';
         if (!isSameMonth(day, monthStart)) cellClass += ' other-month';
         if (isToday(day)) cellClass += ' today';
-        if (isDayHoliday) cellClass += ' holiday'; // Visual cue for holiday
+        if (isDayHoliday) cellClass += ' holiday';
 
         return (
             <div className={cellClass}>
@@ -68,7 +63,16 @@ export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks }) =>
                 </div>
                 <div className="day-content">
                     {dayTasks.map(task => (
-                        <div key={task.id} className="mini-task">
+                        <div
+                            key={task.id}
+                            className={`mini-task ${task.isCompleted ? 'completed' : ''}`}
+                            style={{
+                                textDecoration: task.isCompleted ? 'line-through' : 'none',
+                                opacity: task.isCompleted ? 0.6 : 1,
+                                color: task.isCompleted ? '#888' : 'inherit'
+                            }}
+                        >
+                            {task.isCompleted && '✓ '}
                             {format(new Date(task.scheduledTime), 'HH:mm')} {task.title}
                         </div>
                     ))}

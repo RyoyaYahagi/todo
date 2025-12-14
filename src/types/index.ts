@@ -29,6 +29,11 @@ export interface AppSettings {
     notifyDayBeforeTime: string; // "21:00"
     notifyBeforeTask: boolean;
     notifyBeforeTaskMinutes: number; // 30
+    maxPriority: number; // 5
+    scheduleInterval: number; // 2
+    startTimeMorning: number; // 8
+    startTimeAfternoon: number; // 13
+    maxTasksPerDay: number; // 3
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -37,4 +42,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
     notifyDayBeforeTime: '21:00',
     notifyBeforeTask: true,
     notifyBeforeTaskMinutes: 30,
+    maxPriority: 5,
+    scheduleInterval: 2,
+    startTimeMorning: 8,
+    startTimeAfternoon: 13,
+    maxTasksPerDay: 3,
 };

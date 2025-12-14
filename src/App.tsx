@@ -1,13 +1,18 @@
-import { useState, useEffect } from 'react';
-import { useIndexedDB } from './hooks/useIndexedDB';
+import { useState } from 'react';
+import { useSupabase } from './hooks/useSupabase';
+import { useAuth } from './contexts/AuthContext';
 import { useNotifications } from './hooks/useNotifications';
 import { TaskList } from './components/TaskList';
 import { TaskForm } from './components/TaskForm';
 import { Calendar } from './components/Calendar';
 import { Settings } from './components/Settings';
-import { scheduleTasksAcrossHolidays } from './lib/scheduler';
+import { Login } from './components/Login';
+
+import { Modal } from './components/Modal';
 
 function App() {
+  const { user, loading: authLoading, signOut } = useAuth();
+
   const {
     tasks,
     scheduledTasks,
@@ -15,16 +20,17 @@ function App() {
     settings,
     loading,
     addTask,
+    updateTask,
     deleteTask,
     updateSettings,
     saveEvents,
     saveScheduledTasks,
-    deleteScheduledTask,
     exportData,
     importData
-  } = useIndexedDB();
+  } = useSupabase();
 
   const [activeTab, setActiveTab] = useState<'tasks' | 'calendar' | 'settings'>('tasks');
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
   // Activate notifications hook
   useNotifications(settings, tasks, events, scheduledTasks, saveScheduledTasks);
@@ -37,50 +43,76 @@ function App() {
     saveScheduledTasks(updated);
   };
 
-  // Auto-scheduler logic:
-  // タスクを複数の休日に分配してスケジュールする
-  // - 今日が休日 → 今日 + 次の休日
-  // - 今日が休日ではない → 次の休日 + 次の次の休日
-  // - 各休日には最大3件まで
-  // - 一度スケジュールしたタスクは再スケジュールしない
-  useEffect(() => {
-    if (loading) return;
-
-    const today = new Date();
-
-    // 未スケジュールのタスクがあれば、複数の休日に分配してスケジュール
-    const newSchedule = scheduleTasksAcrossHolidays(tasks, events, scheduledTasks, today);
-
-    if (newSchedule.length > 0) {
-      console.log("Auto-scheduling tasks across holidays:", newSchedule);
-      saveScheduledTasks([...scheduledTasks, ...newSchedule]);
+  const handlePriorityChange = async (taskId: string, newPriority: 1 | 2 | 3 | 4 | 5) => {
+    const targetTask = tasks.find(t => t.id === taskId);
+    if (targetTask) {
+      await updateTask({ ...targetTask, priority: newPriority });
     }
-  }, [loading, tasks, events, scheduledTasks]);
+  };
 
+  // 認証読み込み中
+  if (authLoading) {
+    return <div className="loading">認証を確認中...</div>;
+  }
+
+  // 未ログイン時はログイン画面を表示
+  if (!user) {
+    return <Login />;
+  }
+
+  // データ読み込み中
   if (loading) {
-    return <div className="loading">Loading...</div>;
+    return <div className="loading">データを読み込み中...</div>;
   }
 
   return (
     <div className="app-container">
       <header className="app-header">
         <h1>Holiday Todo</h1>
+        <div className="header-user">
+          <span className="user-email">{user.email}</span>
+          <button className="logout-btn" onClick={signOut} type="button">
+            ログアウト
+          </button>
+        </div>
       </header>
 
       <main className="app-content">
         {activeTab === 'tasks' && (
           <div className="tab-content fade-in">
-            <TaskForm onAdd={addTask} />
-            <div className="section-divider"></div>
             <TaskList
               tasks={tasks}
               scheduledTasks={scheduledTasks}
               onDelete={deleteTask}
               onComplete={completeTask}
-              onDeleteScheduled={deleteScheduledTask}
+              onUpdatePriority={handlePriorityChange}
+              maxPriority={settings.maxPriority}
             />
+
+            {/* FAB for adding tasks */}
+            <div className="fab-container">
+              <button className="fab-button" onClick={() => setIsTaskModalOpen(true)}>
+                <span>+</span>
+              </button>
+            </div>
+
+            {/* Task Add Modal */}
+            <Modal
+              isOpen={isTaskModalOpen}
+              onClose={() => setIsTaskModalOpen(false)}
+              title="新規タスク追加"
+            >
+              <TaskForm
+                onAdd={async (title, priority) => {
+                  await addTask(title, priority);
+                  setIsTaskModalOpen(false);
+                }}
+                maxPriority={settings.maxPriority}
+              />
+            </Modal>
           </div>
         )}
+
 
         {activeTab === 'calendar' && (
           <div className="tab-content fade-in">
