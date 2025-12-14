@@ -296,10 +296,14 @@ export const Settings: React.FC<SettingsProps> = ({
                         <span>分前に通知する</span>
                     </label>
                 </div>
+            </section>
 
-                <div className="section-divider" style={{ margin: '1.5rem 0', borderTop: '1px solid #eee' }} />
-
-                <h4 style={{ marginBottom: '1rem', color: '#555' }}>スケジュール設定</h4>
+            {/* スケジュール設定セクション */}
+            <section className="settings-section">
+                <h3>⏰ スケジュール設定</h3>
+                <p className="description">
+                    タスクの自動スケジューリングに関する設定です。変更後は「保存」ボタンを押してください。
+                </p>
 
                 <div className="form-group">
                     <label>タスクの時間間隔（時間）</label>
