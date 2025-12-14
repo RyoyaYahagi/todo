@@ -117,8 +117,8 @@ function App() {
               title="新規タスク追加"
             >
               <TaskForm
-                onAdd={async (title, priority) => {
-                  await addTask(title, priority);
+                onAdd={async (title, scheduleType, options) => {
+                  await addTask(title, scheduleType, options);
                   setIsTaskModalOpen(false);
                 }}
                 maxPriority={settings.maxPriority}

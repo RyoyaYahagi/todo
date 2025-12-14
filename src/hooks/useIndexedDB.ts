@@ -39,6 +39,7 @@ export function useIndexedDB() {
             id: crypto.randomUUID(),
             title,
             priority,
+            scheduleType: 'priority',
             createdAt: Date.now()
         };
         await db.addTask(newTask);

@@ -168,10 +168,9 @@ export function findNextHolidays(
 /**
  * 未完了タスクを再スケジュールする
  * 
- * 全ての未完了タスク（プール + 未完了スケジュール済み）を優先度順に並べ替え、
- * 未来の休日に再配置する。
+ * scheduleType === 'priority' のタスクのみ自動スケジュール対象。
+ * 時間指定タスク(scheduleType === 'time')の時間帯は自動スケジュールで避ける。
  * 完了済みのスケジュール済みタスクは動かさない。
- * 手動で日時指定されたタスク(manualDate)は、その日時に固定して配置する。
  */
 export function reschedulePendingTasks(
     allTasks: Task[],
@@ -187,34 +186,53 @@ export function reschedulePendingTasks(
     const completedSchedules = existingScheduledTasks.filter(t => t.isCompleted);
     const completedTaskIds = new Set(completedSchedules.map(t => t.taskId));
 
-    // 2. まだ完了していないタスクを抽出（これらが再スケジュールの対象）
-    const pendingTasks = allTasks.filter(t => !completedTaskIds.has(t.id));
+    // 2. 時間指定タスク（手動スケジュール）を特定
+    //    これらは自動スケジュールの対象外だがその時間帯を避ける必要がある
+    const manualTimeTasks = allTasks.filter(t => t.scheduleType === 'time' && t.manualScheduledTime);
 
-    // 自動スケジューリング対象タスク (優先度順)
-    const autoTasks = pendingTasks.sort((a, b) => {
-        if (b.priority !== a.priority) return b.priority - a.priority;
-        return a.createdAt - b.createdAt;
-    });
+    // 3. 自動スケジューリング対象: scheduleType === 'priority' かつ未完了
+    const pendingPriorityTasks = allTasks
+        .filter(t => t.scheduleType === 'priority' && !completedTaskIds.has(t.id))
+        .sort((a, b) => {
+            // 優先度順（高い順）、同じ優先度なら古い順
+            const priorityA = a.priority ?? 1;
+            const priorityB = b.priority ?? 1;
+            if (priorityB !== priorityA) return priorityB - priorityA;
+            return a.createdAt - b.createdAt;
+        });
 
-    // 3. 削除すべき既存スケジュールID（未完了のもの全て）
+    // 4. 削除すべき既存スケジュールID
+    //    未完了のもの全て（自動スケジュール分のみ削除）
     const obsoleteScheduleIds = existingScheduledTasks
-        .filter(t => !t.isCompleted)
+        .filter(t => !t.isCompleted && t.scheduleType === 'priority')
         .map(t => t.id);
 
-    // 4. スケジューリング実行
+    // 5. スケジューリング実行
     const newSchedules: ScheduledTask[] = [];
 
-    // 保持するスケジュール（完了済み）をベースにする
+    // 保持するスケジュール（完了済み + 手動時間指定）をベースにする
     const currentAllocation = [...completedSchedules];
+
+    // 手動時間指定タスクの時間もブロック対象に追加
+    for (const task of manualTimeTasks) {
+        if (task.manualScheduledTime) {
+            currentAllocation.push({
+                ...task,
+                taskId: task.id,
+                scheduledTime: task.manualScheduledTime,
+                isCompleted: false
+            } as ScheduledTask);
+        }
+    }
 
     let taskIndex = 0;
     // 今日から検索開始
     let searchDate = startOfDay(today);
     let daysSearched = 0;
 
-    while (taskIndex < autoTasks.length && daysSearched < 90) {
+    while (taskIndex < pendingPriorityTasks.length && daysSearched < 90) {
         if (isHoliday(searchDate, events)) {
-            // この日の既存タスク（完了済み）
+            // この日の既存タスク（完了済み + 手動指定）
             const dayExisting = currentAllocation.filter(t => isSameDay(new Date(t.scheduledTime), searchDate));
 
             // 空きスロット数 (設定された1日の最大数 - 既存数)
@@ -222,7 +240,7 @@ export function reschedulePendingTasks(
 
             if (slotsAvailable > 0) {
                 // この日に割り当てるタスク
-                const chunk = autoTasks.slice(taskIndex, taskIndex + slotsAvailable);
+                const chunk = pendingPriorityTasks.slice(taskIndex, taskIndex + slotsAvailable);
 
                 // スケジュール実行
                 const scheduled = scheduleTasksForHoliday(searchDate, chunk, events, settings, dayExisting);

@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { DEFAULT_SETTINGS, type Task, type AppSettings, type WorkEvent, type ScheduledTask, type EventType } from '../types';
+import { DEFAULT_SETTINGS, type Task, type AppSettings, type WorkEvent, type ScheduledTask, type EventType, type TaskScheduleType, type RecurrenceRule } from '../types';
 
 /**
  * Supabaseのデータベース行型定義
@@ -7,19 +7,26 @@ import { DEFAULT_SETTINGS, type Task, type AppSettings, type WorkEvent, type Sch
 interface TaskRow {
     id: string;
     title: string;
-    priority: number;
+    priority: number | null;
     created_at: string;
+    schedule_type: string;
+    manual_scheduled_time: string | null;
+    recurrence: RecurrenceRule | null;
 }
 
 interface ScheduledTaskRow {
     id: string;
     task_id: string;
     title: string;
-    priority: number;
+    priority: number | null;
     scheduled_time: string;
     is_completed: boolean;
     notified_at?: string | null;
     created_at: string;
+    schedule_type: string;
+    manual_scheduled_time: string | null;
+    recurrence: RecurrenceRule | null;
+    recurrence_source_id: string | null;
 }
 
 interface EventRow {
@@ -51,8 +58,11 @@ function rowToTask(row: TaskRow): Task {
     return {
         id: row.id,
         title: row.title,
-        priority: row.priority as 1 | 2 | 3 | 4 | 5,
-        createdAt: new Date(row.created_at).getTime()
+        createdAt: new Date(row.created_at).getTime(),
+        scheduleType: (row.schedule_type || 'priority') as TaskScheduleType,
+        priority: row.priority ? (row.priority as 1 | 2 | 3 | 4 | 5) : undefined,
+        manualScheduledTime: row.manual_scheduled_time ? new Date(row.manual_scheduled_time).getTime() : undefined,
+        recurrence: row.recurrence || undefined
     };
 }
 
@@ -61,11 +71,15 @@ function rowToScheduledTask(row: ScheduledTaskRow): ScheduledTask {
         id: row.id,
         taskId: row.task_id,
         title: row.title,
-        priority: row.priority as 1 | 2 | 3 | 4 | 5,
+        createdAt: new Date(row.created_at).getTime(),
+        scheduleType: (row.schedule_type || 'priority') as TaskScheduleType,
+        priority: row.priority ? (row.priority as 1 | 2 | 3 | 4 | 5) : undefined,
+        manualScheduledTime: row.manual_scheduled_time ? new Date(row.manual_scheduled_time).getTime() : undefined,
+        recurrence: row.recurrence || undefined,
         scheduledTime: new Date(row.scheduled_time).getTime(),
         isCompleted: row.is_completed,
         notifiedAt: row.notified_at ? new Date(row.notified_at).getTime() : undefined,
-        createdAt: new Date(row.created_at).getTime()
+        recurrenceSourceId: row.recurrence_source_id || undefined
     };
 }
 
@@ -104,7 +118,7 @@ export const supabaseDb = {
 
         const { data, error } = await supabase
             .from('tasks')
-            .select('id, title, priority, created_at')
+            .select('id, title, priority, created_at, schedule_type, manual_scheduled_time, recurrence')
             .eq('user_id', user.id)
             .order('created_at', { ascending: true });
 
@@ -174,8 +188,11 @@ export const supabaseDb = {
                 id: task.id,
                 user_id: user.id,
                 title: task.title,
-                priority: task.priority,
-                created_at: new Date(task.createdAt).toISOString()
+                priority: task.priority ?? null,
+                created_at: new Date(task.createdAt).toISOString(),
+                schedule_type: task.scheduleType,
+                manual_scheduled_time: task.manualScheduledTime ? new Date(task.manualScheduledTime).toISOString() : null,
+                recurrence: task.recurrence ?? null
             });
 
         if (error) throw error;
@@ -189,7 +206,10 @@ export const supabaseDb = {
             .from('tasks')
             .update({
                 title: task.title,
-                priority: task.priority
+                priority: task.priority ?? null,
+                schedule_type: task.scheduleType,
+                manual_scheduled_time: task.manualScheduledTime ? new Date(task.manualScheduledTime).toISOString() : null,
+                recurrence: task.recurrence ?? null
             })
             .eq('id', task.id);
 
@@ -272,11 +292,15 @@ export const supabaseDb = {
                     user_id: user.id,
                     task_id: task.taskId,
                     title: task.title,
-                    priority: task.priority,
+                    priority: task.priority ?? null,
                     scheduled_time: new Date(task.scheduledTime).toISOString(),
                     is_completed: task.isCompleted,
                     notified_at: task.notifiedAt ? new Date(task.notifiedAt).toISOString() : null,
-                    created_at: new Date(task.createdAt).toISOString()
+                    created_at: new Date(task.createdAt).toISOString(),
+                    schedule_type: task.scheduleType,
+                    manual_scheduled_time: task.manualScheduledTime ? new Date(task.manualScheduledTime).toISOString() : null,
+                    recurrence: task.recurrence ?? null,
+                    recurrence_source_id: task.recurrenceSourceId ?? null
                 });
 
             if (error) {
@@ -296,7 +320,7 @@ export const supabaseDb = {
 
         const { data, error } = await supabase
             .from('scheduled_tasks')
-            .select('id, task_id, title, priority, scheduled_time, is_completed, notified_at, created_at')
+            .select('id, task_id, title, priority, scheduled_time, is_completed, notified_at, created_at, schedule_type, manual_scheduled_time, recurrence, recurrence_source_id')
             .eq('user_id', user.id)
             .order('scheduled_time', { ascending: true });
 

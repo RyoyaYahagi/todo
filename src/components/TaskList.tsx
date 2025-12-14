@@ -43,13 +43,25 @@ export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDel
     const scheduledTaskIds = new Set(scheduledTasks.map(st => st.taskId));
     const unscheduledTasks = tasks.filter(t => !scheduledTaskIds.has(t.id));
 
-    // 未定タスク（優先度順）
+    // 未定タスク（優先度順 - 優先度がないものは最後）
     const sortedUnscheduled = [...unscheduledTasks].sort((a, b) => {
-        if (b.priority !== a.priority) return b.priority - a.priority;
+        const priorityA = a.priority ?? 0;
+        const priorityB = b.priority ?? 0;
+        if (priorityB !== priorityA) return priorityB - priorityA;
         return b.createdAt - a.createdAt;
     });
 
     const otherTasks = [...futureScheduled, ...sortedUnscheduled]; // 明日以降の後に未定を表示
+
+    // タスクタイプのアイコンを取得
+    const getScheduleTypeIcon = (scheduleType?: string) => {
+        switch (scheduleType) {
+            case 'time': return '🕐';
+            case 'recurrence': return '🔁';
+            case 'priority': return '⭐';
+            default: return '📝';
+        }
+    };
 
     // 修正: renderTaskItem内のハンドラ引数を正す
     const renderItem = (item: any, isScheduled: boolean) => {
@@ -65,6 +77,7 @@ export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDel
                 />
                 <div className="task-content-clean">
                     <div className={`task-title-clean ${isCompleted ? 'completed' : ''}`}>
+                        <span className="task-type-icon">{getScheduleTypeIcon(item.scheduleType)}</span>
                         {item.title}
                     </div>
                     <div className="task-meta-clean">
@@ -75,13 +88,14 @@ export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDel
                         )}
                         <span style={{ margin: '0 0.5rem', color: '#eee' }}>|</span>
                         <select
-                            className={`priority-badge p-${Math.min(item.priority, maxPriority)}`}
-                            value={Math.min(item.priority, maxPriority)}
+                            className={`priority-badge p-${item.priority ? Math.min(item.priority, maxPriority) : 0}`}
+                            value={item.priority ? Math.min(item.priority, maxPriority) : ''}
                             onChange={(e) => onUpdatePriority(realTaskId, parseInt(e.target.value) as Priority)}
                             style={{ border: 'none', cursor: 'pointer', outline: 'none', fontSize: '0.75rem' }}
                             onClick={(e) => e.stopPropagation()}
+                            disabled={!item.priority}
                         >
-                            {Array.from({ length: maxPriority }, (_, i) => i + 1).map(p => <option key={p} value={p} style={{ color: 'black' }}>P{p}</option>)}
+                            {item.priority && Array.from({ length: maxPriority }, (_, i) => i + 1).map(p => <option key={p} value={p} style={{ color: 'black' }}>P{p}</option>)}
                         </select>
                     </div>
                 </div>
