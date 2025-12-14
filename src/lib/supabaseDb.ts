@@ -40,6 +40,11 @@ interface SettingsRow {
     notify_day_before_time: string;
     notify_before_task: boolean;
     notify_before_task_minutes: number;
+    max_priority?: number;
+    schedule_interval?: number;
+    start_time_morning?: number;
+    start_time_afternoon?: number;
+    max_tasks_per_day?: number;
 }
 
 /**
@@ -91,7 +96,12 @@ function rowToSettings(row: SettingsRow): AppSettings {
         notifyOnDayBefore: row.notify_on_day_before,
         notifyDayBeforeTime: row.notify_day_before_time,
         notifyBeforeTask: row.notify_before_task,
-        notifyBeforeTaskMinutes: row.notify_before_task_minutes
+        notifyBeforeTaskMinutes: row.notify_before_task_minutes,
+        maxPriority: row.max_priority ?? 5,
+        scheduleInterval: row.schedule_interval ?? 2,
+        startTimeMorning: row.start_time_morning ?? 8,
+        startTimeAfternoon: row.start_time_afternoon ?? 13,
+        maxTasksPerDay: row.max_tasks_per_day ?? 3,
     };
 }
 
@@ -138,7 +148,12 @@ export const supabaseDb = {
                 notify_on_day_before: settings.notifyOnDayBefore,
                 notify_day_before_time: settings.notifyDayBeforeTime,
                 notify_before_task: settings.notifyBeforeTask,
-                notify_before_task_minutes: settings.notifyBeforeTaskMinutes
+                notify_before_task_minutes: settings.notifyBeforeTaskMinutes,
+                max_priority: settings.maxPriority,
+                schedule_interval: settings.scheduleInterval,
+                start_time_morning: settings.startTimeMorning,
+                start_time_afternoon: settings.startTimeAfternoon,
+                max_tasks_per_day: settings.maxTasksPerDay,
             });
 
         if (error) throw error;
@@ -338,6 +353,23 @@ export const supabaseDb = {
             .from('scheduled_tasks')
             .delete()
             .in('id', ids);
+
+        if (error) throw error;
+    },
+
+    /**
+     * ユーザーの未完了スケジュール済みタスクを全て削除
+     * (再スケジューリング時のクリーンアップ用)
+     */
+    async deletePendingScheduledTasks(): Promise<void> {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { error } = await supabase
+            .from('scheduled_tasks')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('is_completed', false);
 
         if (error) throw error;
     },

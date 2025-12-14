@@ -77,7 +77,7 @@ function App() {
       <main className="app-content">
         {activeTab === 'tasks' && (
           <div className="tab-content fade-in">
-            <TaskForm onAdd={addTask} />
+            <TaskForm onAdd={addTask} maxPriority={settings.maxPriority} />
             <div className="section-divider"></div>
             <TaskList
               tasks={tasks}
@@ -85,6 +85,7 @@ function App() {
               onDelete={deleteTask}
               onComplete={completeTask}
               onUpdatePriority={handlePriorityChange}
+              maxPriority={settings.maxPriority}
             />
           </div>
         )}

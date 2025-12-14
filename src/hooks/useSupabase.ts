@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabaseDb } from '../lib/supabaseDb';
 import { useAuth } from '../contexts/AuthContext';
-import { reschedulePendingTasks } from '../lib/scheduler'; // reschedulePendingTasksを追加
+import { reschedulePendingTasks } from '../lib/scheduler';
 import { DEFAULT_SETTINGS, type Task, type WorkEvent, type ScheduledTask, type AppSettings } from '../types';
 
 /**
@@ -18,6 +18,9 @@ export function useSupabase() {
     const [events, setEvents] = useState<WorkEvent[]>([]);
     const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
     const [loading, setLoading] = useState(true);
+
+    // スケジューリング処理の重複実行を防ぐためのフラグ
+    const isScheduling = useRef(false);
 
     /**
      * 全データを再読み込み
@@ -57,36 +60,49 @@ export function useSupabase() {
      * 現在のDBの状態をもとに再計算し、更新があればDBに反映する
      */
     const runAutoSchedule = async () => {
-        // 最新のデータを取得
-        const [currentTasks, currentScheduled, currentEvents] = await Promise.all([
-            supabaseDb.getAllTasks(),
-            supabaseDb.getScheduledTasks(),
-            supabaseDb.getAllEvents()
-        ]);
+        if (isScheduling.current) {
+            console.log('Skipping auto-schedule: already running');
+            return;
+        }
 
-        const today = new Date();
-        const { newSchedules, obsoleteScheduleIds } = reschedulePendingTasks(
-            currentTasks,
-            currentScheduled,
-            currentEvents,
-            today
-        );
+        isScheduling.current = true;
+        try {
+            // 最新のデータを取得
+            const [currentTasks, currentScheduled, currentEvents, currentSettings] = await Promise.all([
+                supabaseDb.getAllTasks(),
+                supabaseDb.getScheduledTasks(),
+                supabaseDb.getAllEvents(),
+                supabaseDb.getSettings()
+            ]);
 
-        // 変更がある場合のみ実行
-        if (obsoleteScheduleIds.length > 0 || newSchedules.length > 0) {
-            console.log('Running auto-schedule:', {
-                deleted: obsoleteScheduleIds.length,
-                added: newSchedules.length
-            });
+            const today = new Date();
+            const { newSchedules, obsoleteScheduleIds } = reschedulePendingTasks(
+                currentTasks,
+                currentScheduled,
+                currentEvents,
+                currentSettings,
+                today
+            );
 
-            if (obsoleteScheduleIds.length > 0) {
-                await supabaseDb.deleteScheduledTasks(obsoleteScheduleIds);
+            // 変更がある場合のみ実行
+            if (obsoleteScheduleIds.length > 0 || newSchedules.length > 0) {
+                console.log('Running auto-schedule:', {
+                    toDelete: obsoleteScheduleIds.length,
+                    toAdd: newSchedules.length
+                });
+
+                // 一貫性を保つため、未完了スケジュールを一度全て削除してから新しいスケジュールを保存する
+                // これにより、重複やゴミデータの残留を防ぐ
+                await supabaseDb.deletePendingScheduledTasks();
+
+                if (newSchedules.length > 0) {
+                    await supabaseDb.saveScheduledTasks(newSchedules);
+                }
+                // 変更があった場合はデータをリフレッシュ
+                await refreshData();
             }
-            if (newSchedules.length > 0) {
-                await supabaseDb.saveScheduledTasks(newSchedules);
-            }
-            // 変更があった場合はデータをリフレッシュ
-            await refreshData();
+        } finally {
+            isScheduling.current = false;
         }
     };
 
@@ -186,7 +202,9 @@ export function useSupabase() {
      */
     const updateSettings = async (newSettings: AppSettings) => {
         await supabaseDb.saveSettings(newSettings);
-        setSettings(newSettings);
+        // 設定変更（間隔変更など）に合わせて再スケジュール
+        await runAutoSchedule();
+        await refreshData();
     };
 
     /**

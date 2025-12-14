@@ -3,9 +3,10 @@ import type { Priority } from '../types';
 
 interface TaskFormProps {
     onAdd: (title: string, priority: Priority) => void;
+    maxPriority?: number;
 }
 
-export const TaskForm: React.FC<TaskFormProps> = ({ onAdd }) => {
+export const TaskForm: React.FC<TaskFormProps> = ({ onAdd, maxPriority = 5 }) => {
     const [title, setTitle] = useState('');
     const [priority, setPriority] = useState<Priority>(3);
 
@@ -32,9 +33,9 @@ export const TaskForm: React.FC<TaskFormProps> = ({ onAdd }) => {
             </div>
 
             <div className="form-group">
-                <label htmlFor="task-priority">優先度 (1:低 - 5:高)</label>
+                <label htmlFor="task-priority">優先度 (1:低 - {maxPriority}:高)</label>
                 <div className="priority-selector">
-                    {[1, 2, 3, 4, 5].map((p) => (
+                    {Array.from({ length: maxPriority }, (_, i) => i + 1).map((p) => (
                         <label key={p} className={`priority-label ${priority === p ? 'selected' : ''}`}>
                             <input
                                 type="radio"

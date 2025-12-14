@@ -1,4 +1,4 @@
-import type { Task, ScheduledTask, WorkEvent } from '../types';
+import type { Task, ScheduledTask, WorkEvent, AppSettings } from '../types';
 import { isSameDay, getHours, setHours, setMinutes, startOfDay, subDays, addDays } from 'date-fns';
 
 /**
@@ -44,6 +44,7 @@ export function scheduleTasksForHoliday(
     date: Date,
     tasksToSchedule: Task[],
     events: WorkEvent[],
+    settings: AppSettings,
     existingTasks: ScheduledTask[] = []
 ): ScheduledTask[] {
     if (!isHoliday(date, events)) {
@@ -54,14 +55,14 @@ export function scheduleTasksForHoliday(
     }
 
     // 基本の開始時間を決定
-    let startHour = 8;
+    let startHour = settings.startTimeMorning;
     const prevEndTime = getPreviousWorkEndTime(date, events);
     if (prevEndTime) {
         const endHour = getHours(prevEndTime);
         if (endHour < 12) {
-            startHour = 13;
+            startHour = settings.startTimeAfternoon;
         } else {
-            startHour = 8;
+            startHour = settings.startTimeMorning;
         }
     }
 
@@ -74,8 +75,7 @@ export function scheduleTasksForHoliday(
             .map(t => new Date(t.scheduledTime).getTime())
     );
 
-    // スロット候補生成（最大5回分くらい?）
-    // 8:00, 10:00, 12:00, 14:00, 16:00...
+    // スロット候補生成
     let currentStartTime = setHours(setMinutes(startOfDay(date), 0), startHour);
 
     for (const task of tasksToSchedule) {
@@ -84,7 +84,7 @@ export function scheduleTasksForHoliday(
         let slotFound = false;
         let attempts = 0;
 
-        while (attempts < 8) { // 最大8スロット（16時間分）チェックすれば十分
+        while (attempts < 8) { // 最大8スロットチェックすれば十分
             const timeTime = currentStartTime.getTime();
 
             if (!occupiedTimes.has(timeTime)) {
@@ -93,8 +93,8 @@ export function scheduleTasksForHoliday(
                 break;
             }
 
-            // 次のスロットへ（2時間後）
-            currentStartTime = new Date(currentStartTime.getTime() + 2 * 60 * 60 * 1000);
+            // 次のスロットへ（設定された間隔）
+            currentStartTime = new Date(currentStartTime.getTime() + settings.scheduleInterval * 60 * 60 * 1000);
             attempts++;
         }
 
@@ -111,10 +111,9 @@ export function scheduleTasksForHoliday(
             // この時間を埋める
             occupiedTimes.add(scheduledTime);
             // 次の準備
-            currentStartTime = new Date(currentStartTime.getTime() + 2 * 60 * 60 * 1000);
+            currentStartTime = new Date(currentStartTime.getTime() + settings.scheduleInterval * 60 * 60 * 1000);
         } else {
             // スロットが見つからなかったらこのタスクはこの日にスケジュールできない
-            // (次の休日に回すべきだが、この関数のスコープ外)
             break;
         }
     }
@@ -173,6 +172,7 @@ export function reschedulePendingTasks(
     allTasks: Task[],
     existingScheduledTasks: ScheduledTask[],
     events: WorkEvent[],
+    settings: AppSettings,
     today: Date = new Date()
 ): {
     newSchedules: ScheduledTask[],
@@ -213,15 +213,15 @@ export function reschedulePendingTasks(
             // この日の既存タスク（完了済みなど）
             const dayExisting = currentAllocation.filter(t => isSameDay(new Date(t.scheduledTime), searchDate));
 
-            // 空きスロット数
-            const slotsAvailable = 3 - dayExisting.length;
+            // 空きスロット数 (設定された1日の最大数 - 既存数)
+            const slotsAvailable = settings.maxTasksPerDay - dayExisting.length;
 
             if (slotsAvailable > 0) {
                 // この日に割り当てるタスク
                 const chunk = pendingTasks.slice(taskIndex, taskIndex + slotsAvailable);
 
                 // スケジュール実行
-                const scheduled = scheduleTasksForHoliday(searchDate, chunk, events, dayExisting);
+                const scheduled = scheduleTasksForHoliday(searchDate, chunk, events, settings, dayExisting);
 
                 newSchedules.push(...scheduled);
                 currentAllocation.push(...scheduled); // 割り当て済みリストに追加（次のループの判定用）
@@ -242,22 +242,7 @@ export const scheduleTasksAcrossHolidays = (
     events: WorkEvent[],
     scheduledTasks: ScheduledTask[],
     today: Date
+    // Note: This needs refactoring if it's ever used again, to accept settings.
 ): ScheduledTask[] => {
-    // 従来のロジックではなく、全再スケジュールの結果の新規分だけを返すラッパーとして機能させることも可能だが、
-    // 呼び出し元が削除処理を期待していない可能性があるため、
-    // ここでは古いロジック（ただしバグ修正版）を提供するか、あるいは使用を非推奨にする。
-    // 今回は App.tsx を書き換えて reschedulePendingTasks を使うようにするため、ここはダミーで空配列を返しても良いが
-    // 安全のため、最小限の実装を残すか、またはこの関数自体を deprecated とする。
-
-    // いったん「追加分のみ」を計算する簡易ロジック（スロット考慮版）にする
-    const scheduledTaskIds = new Set(scheduledTasks.map(t => t.taskId));
-    const unscheduledTasks = tasks.filter(t => !scheduledTaskIds.has(t.id));
-
-    if (unscheduledTasks.length === 0) return [];
-
-    unscheduledTasks.sort((a, b) => b.priority - a.priority);
-
-    // ... (省略、この関数はもう使わない方向で進める)
     return [];
 };
-
