@@ -10,6 +10,8 @@ import {
     isSameDay,
     addMonths,
     subMonths,
+    addWeeks,
+    subWeeks,
     isToday
 } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -23,37 +25,71 @@ interface CalendarProps {
 
 export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
+    const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
 
-    const monthStart = startOfMonth(currentDate);
-    const monthEnd = endOfMonth(monthStart);
-    const startDate = startOfWeek(monthStart);
-    const endDate = endOfWeek(monthEnd);
+    const getDays = () => {
+        if (viewMode === 'month') {
+            const monthStart = startOfMonth(currentDate);
+            const monthEnd = endOfMonth(monthStart);
+            const startDate = startOfWeek(monthStart);
+            const endDate = endOfWeek(monthEnd);
+            return eachDayOfInterval({ start: startDate, end: endDate });
+        } else {
+            const startDate = startOfWeek(currentDate);
+            const endDate = endOfWeek(currentDate);
+            return eachDayOfInterval({ start: startDate, end: endDate });
+        }
+    };
 
-    const days = eachDayOfInterval({
-        start: startDate,
-        end: endDate,
-    });
+    const days = getDays();
 
-    const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
-    const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
+    const handleNext = () => {
+        if (viewMode === 'month') {
+            setCurrentDate(addMonths(currentDate, 1));
+        } else {
+            setCurrentDate(addWeeks(currentDate, 1));
+        }
+    };
+
+    const handlePrev = () => {
+        if (viewMode === 'month') {
+            setCurrentDate(subMonths(currentDate, 1));
+        } else {
+            setCurrentDate(subWeeks(currentDate, 1));
+        }
+    };
+
+    const getHeaderTitle = () => {
+        if (viewMode === 'month') {
+            return format(currentDate, 'yyyy年 M月', { locale: ja });
+        } else {
+            const start = startOfWeek(currentDate);
+            const end = endOfWeek(currentDate);
+            // 同じ月なら 2023年 12月 10日 - 16日
+            // 違う月なら 2023年 11月 26日 - 12月 2日
+            if (isSameMonth(start, end)) {
+                return format(start, 'yyyy年 M月', { locale: ja });
+            } else {
+                return `${format(start, 'M月d日', { locale: ja })} - ${format(end, 'M月d日', { locale: ja })}`;
+            }
+        }
+    };
 
     const getDayContent = (day: Date) => {
         const dayEvents = events.filter(e => isSameDay(e.start, day));
         const dayTasks = scheduledTasks.filter(t => isSameDay(new Date(t.scheduledTime), day));
-        const isDayHoliday = isHoliday(day, events); // This checks if day has '休み' or NO events (if we treat no events as holiday per rule?)
-        // Note: The rule "当日に '休み' イベントがある、またはイベントが存在しない場合は休日"
-        // However, if we only loaded partial data, "no events" might be dangerous.
-        // Usually user loads full schedule.
-        // Implementing strictly as requested: "イベントが存在しない場合は休日"
+        const isDayHoliday = isHoliday(day, events);
 
-        // Check if we have ANY events for this day
         const hasAnyEvent = dayEvents.length > 0;
         const isYasumi = dayEvents.some(e => e.eventType === '休み');
 
         let cellClass = 'day-cell';
-        if (!isSameMonth(day, monthStart)) cellClass += ' other-month';
+        if (viewMode === 'month' && !isSameMonth(day, currentDate)) cellClass += ' other-month';
         if (isToday(day)) cellClass += ' today';
-        if (isDayHoliday) cellClass += ' holiday'; // Visual cue for holiday
+        if (isDayHoliday) cellClass += ' holiday';
+
+        // 週表示の場合は高さを確保するためのクラスを追加
+        if (viewMode === 'week') cellClass += ' week-view-cell';
 
         return (
             <div className={cellClass}>
@@ -87,11 +123,27 @@ export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks }) =>
     };
 
     return (
-        <div className="calendar-container">
+        <div className={`calendar-container ${viewMode}-view`}>
             <div className="calendar-header">
-                <button onClick={prevMonth}>&lt;</button>
-                <h2>{format(currentDate, 'yyyy年 M月', { locale: ja })}</h2>
-                <button onClick={nextMonth}>&gt;</button>
+                <div className="header-controls">
+                    <button onClick={handlePrev}>&lt;</button>
+                    <h2>{getHeaderTitle()}</h2>
+                    <button onClick={handleNext}>&gt;</button>
+                </div>
+                <div className="view-switcher">
+                    <button
+                        className={viewMode === 'month' ? 'active' : ''}
+                        onClick={() => setViewMode('month')}
+                    >
+                        月
+                    </button>
+                    <button
+                        className={viewMode === 'week' ? 'active' : ''}
+                        onClick={() => setViewMode('week')}
+                    >
+                        週
+                    </button>
+                </div>
             </div>
             <div className="calendar-grid">
                 {['日', '月', '火', '水', '木', '金', '土'].map(d => (

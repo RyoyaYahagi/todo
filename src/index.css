@@ -631,3 +631,53 @@ input[type="file"] {
 .empty-state p {
   margin: 0.5rem 0;
 }
+
+/* Calendar View Switcher & Controls */
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.view-switcher {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.view-switcher button {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.9rem;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.view-switcher button:hover {
+  background: #e9ecef;
+}
+
+.view-switcher button.active {
+  background: #4dabf7;
+  color: white;
+  border-color: #339af0;
+  font-weight: bold;
+}
+
+/* Week View Specifics */
+.calendar-container.week-view .calendar-grid {
+  /* 週表示でもグリッドは7列だが、行数が少ない */
+}
+
+.week-view-cell {
+  min-height: 200px;
+  /* 週表示は詳細を見やすくするため高さを確保 */
+}

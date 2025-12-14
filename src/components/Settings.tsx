@@ -254,7 +254,65 @@ export const Settings: React.FC<SettingsProps> = ({
                     </label>
                 </div>
 
-                <div className="form-group" style={{ marginTop: '1rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
+                <div className="section-divider" style={{ margin: '1.5rem 0', borderTop: '1px solid #eee' }} />
+
+                <h4 style={{ marginBottom: '1rem', color: '#555' }}>スケジュール設定</h4>
+
+                <div className="form-group">
+                    <label>タスクの時間間隔（時間）</label>
+                    <select
+                        value={settings.scheduleInterval}
+                        onChange={(e) => onUpdateSettings({ ...settings, scheduleInterval: parseInt(e.target.value) })}
+                        style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', marginLeft: '10px' }}
+                    >
+                        {[1, 2, 3, 4, 5, 6].map(h => (
+                            <option key={h} value={h}>{h}時間</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="form-group" style={{ marginTop: '1rem' }}>
+                    <label>午前の開始時間（日勤/休み）</label>
+                    <select
+                        value={settings.startTimeMorning}
+                        onChange={(e) => onUpdateSettings({ ...settings, startTimeMorning: parseInt(e.target.value) })}
+                        style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', marginLeft: '10px' }}
+                    >
+                        {Array.from({ length: 12 }, (_, i) => i).map(h => (
+                            <option key={h} value={h}>{h}:00</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="form-group" style={{ marginTop: '1rem' }}>
+                    <label>午後の開始時間（夜勤明けなど）</label>
+                    <select
+                        value={settings.startTimeAfternoon}
+                        onChange={(e) => onUpdateSettings({ ...settings, startTimeAfternoon: parseInt(e.target.value) })}
+                        style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', marginLeft: '10px' }}
+                    >
+                        {Array.from({ length: 12 }, (_, i) => i + 12).map(h => (
+                            <option key={h} value={h}>{h}:00</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="form-group" style={{ marginTop: '1rem' }}>
+                    <label>1日の最大タスク数</label>
+                    <select
+                        value={settings.maxTasksPerDay}
+                        onChange={(e) => onUpdateSettings({ ...settings, maxTasksPerDay: parseInt(e.target.value) })}
+                        style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', marginLeft: '10px' }}
+                    >
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                            <option key={n} value={n}>{n}件</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="section-divider" style={{ margin: '1.5rem 0', borderTop: '2px dashed #eee' }} />
+
+                <div className="form-group">
                     <label>最大優先度 (1〜5)</label>
                     <select
                         value={settings.maxPriority || 5}
@@ -268,62 +326,6 @@ export const Settings: React.FC<SettingsProps> = ({
                     <p className="description" style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.2rem' }}>
                         タスクの優先度の選択肢を制限します。（例: 3に設定するとP1〜P3のみ選択可能）
                     </p>
-                </div>
-
-                <div className="section-divider" style={{ margin: '1.5rem 0', borderTop: '2px dashed #eee' }} />
-
-                <h4 style={{ marginBottom: '1rem', color: '#555' }}>スケジュール設定</h4>
-
-                <div className="form-group">
-                    <label>タスクの時間間隔（時間）</label>
-                    <input
-                        type="number"
-                        min="1"
-                        max="24"
-                        value={settings.scheduleInterval}
-                        onChange={(e) => onUpdateSettings({ ...settings, scheduleInterval: parseInt(e.target.value) || 2 })}
-                        style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', marginLeft: '10px', width: '60px' }}
-                    />
-                    <span style={{ marginLeft: '5px', fontSize: '0.9rem' }}>時間</span>
-                </div>
-
-                <div className="form-group" style={{ marginTop: '1rem' }}>
-                    <label>午前の開始時間（日勤/休み）</label>
-                    <select
-                        value={settings.startTimeMorning}
-                        onChange={(e) => onUpdateSettings({ ...settings, startTimeMorning: parseInt(e.target.value) })}
-                        style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', marginLeft: '10px' }}
-                    >
-                        {Array.from({ length: 24 }, (_, i) => i).map(h => (
-                            <option key={h} value={h}>{h}:00</option>
-                        ))}
-                    </select>
-                </div>
-
-                <div className="form-group" style={{ marginTop: '1rem' }}>
-                    <label>午後の開始時間（夜勤明けなど）</label>
-                    <select
-                        value={settings.startTimeAfternoon}
-                        onChange={(e) => onUpdateSettings({ ...settings, startTimeAfternoon: parseInt(e.target.value) })}
-                        style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', marginLeft: '10px' }}
-                    >
-                        {Array.from({ length: 24 }, (_, i) => i).map(h => (
-                            <option key={h} value={h}>{h}:00</option>
-                        ))}
-                    </select>
-                </div>
-
-                <div className="form-group" style={{ marginTop: '1rem' }}>
-                    <label>1日の最大タスク数</label>
-                    <input
-                        type="number"
-                        min="1"
-                        max="10"
-                        value={settings.maxTasksPerDay}
-                        onChange={(e) => onUpdateSettings({ ...settings, maxTasksPerDay: parseInt(e.target.value) || 3 })}
-                        style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', marginLeft: '10px', width: '60px' }}
-                    />
-                    <span style={{ marginLeft: '5px', fontSize: '0.9rem' }}>件</span>
                 </div>
             </section>
 
