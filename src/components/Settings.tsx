@@ -10,6 +10,7 @@ interface SettingsProps {
     onExport: () => Promise<string>;
     onImport: (json: string) => Promise<void>;
     onNavigateToCalendar?: () => void;
+    onShowTutorial?: () => void;
 }
 
 export const Settings: React.FC<SettingsProps> = ({
@@ -18,7 +19,8 @@ export const Settings: React.FC<SettingsProps> = ({
     onSaveEvents,
     onExport,
     onImport,
-    onNavigateToCalendar
+    onNavigateToCalendar,
+    onShowTutorial
 }) => {
     const [importStatus, setImportStatus] = useState<string>('');
     const [webhookTestStatus, setWebhookTestStatus] = useState<string>('');
@@ -122,6 +124,19 @@ export const Settings: React.FC<SettingsProps> = ({
 
     return (
         <div className="settings-container">
+            {/* チュートリアル・ヘルプ */}
+            {onShowTutorial && (
+                <section className="settings-section">
+                    <h3>📚 ヘルプ & ガイド</h3>
+                    <p className="description">
+                        アプリの使い方を確認できます。
+                    </p>
+                    <button onClick={onShowTutorial} className="btn-secondary">
+                        📖 チュートリアルを表示
+                    </button>
+                </section>
+            )}
+
             {/* カレンダー読み込みセクション */}
             <section className="settings-section">
                 <h3>📅 勤務カレンダー読み込み</h3>

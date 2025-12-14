@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSupabase } from './hooks/useSupabase';
 import { useAuth } from './contexts/AuthContext';
 import { useNotifications } from './hooks/useNotifications';
@@ -9,6 +9,7 @@ import { Settings } from './components/Settings';
 import { Login } from './components/Login';
 
 import { Modal } from './components/Modal';
+import { Tutorial } from './components/Tutorial';
 
 function App() {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -31,6 +32,19 @@ function App() {
 
   const [activeTab, setActiveTab] = useState<'tasks' | 'calendar' | 'settings'>('tasks');
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+
+  useEffect(() => {
+    const hasSeenTutorial = localStorage.getItem('tutorial_seen');
+    if (!hasSeenTutorial) {
+      setIsTutorialOpen(true);
+    }
+  }, []);
+
+  const closeTutorial = () => {
+    setIsTutorialOpen(false);
+    localStorage.setItem('tutorial_seen', 'true');
+  };
 
   // Activate notifications hook
   useNotifications(settings, tasks, events, scheduledTasks, saveScheduledTasks);
@@ -130,9 +144,21 @@ function App() {
               onImport={importData}
               onNavigateToCalendar={() => setActiveTab('calendar')}
             />
+            <Settings
+              settings={settings}
+              onUpdateSettings={updateSettings}
+              onSaveEvents={saveEvents}
+              onExport={exportData}
+              onImport={importData}
+              onNavigateToCalendar={() => setActiveTab('calendar')}
+              onShowTutorial={() => setIsTutorialOpen(true)}
+            />
           </div>
         )}
       </main>
+
+      {/* Tutorial Modal */}
+      <Tutorial isOpen={isTutorialOpen} onClose={closeTutorial} />
 
       <nav className="bottom-nav">
         <button
