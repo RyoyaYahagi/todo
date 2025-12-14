@@ -435,33 +435,33 @@ export function useSupabaseQuery() {
     });
 
     // useSupabaseと同じインターフェースを維持
-    // mutateを使用（mutateAsyncではなく）して、UIをブロックしない
-    const addTask = (title: string, priority: 1 | 2 | 3 | 4 | 5) => {
-        addTaskMutation.mutate({ title, priority });
+    // mutateAsyncを使用してPromiseを返す（UIはonMutateで即時更新済み）
+    const addTask = async (title: string, priority: 1 | 2 | 3 | 4 | 5) => {
+        await addTaskMutation.mutateAsync({ title, priority });
     };
 
-    const updateTask = (task: Task) => {
-        updateTaskMutation.mutate(task);
+    const updateTask = async (task: Task) => {
+        await updateTaskMutation.mutateAsync(task);
     };
 
-    const deleteTask = (id: string) => {
-        deleteTaskMutation.mutate(id);
+    const deleteTask = async (id: string) => {
+        await deleteTaskMutation.mutateAsync(id);
     };
 
     const saveEvents = async (newEvents: WorkEvent[]) => {
         await saveEventsMutation.mutateAsync(newEvents);
     };
 
-    const saveScheduledTasks = (newScheduledTasks: ScheduledTask[]) => {
-        saveScheduledTasksMutation.mutate(newScheduledTasks);
+    const saveScheduledTasks = async (newScheduledTasks: ScheduledTask[]) => {
+        await saveScheduledTasksMutation.mutateAsync(newScheduledTasks);
     };
 
-    const deleteScheduledTask = (id: string) => {
-        deleteScheduledTaskMutation.mutate(id);
+    const deleteScheduledTask = async (id: string) => {
+        await deleteScheduledTaskMutation.mutateAsync(id);
     };
 
-    const deleteScheduledTasks = (ids: string[]) => {
-        deleteScheduledTasksMutation.mutate(ids);
+    const deleteScheduledTasks = async (ids: string[]) => {
+        await deleteScheduledTasksMutation.mutateAsync(ids);
     };
 
     const updateSettings = async (newSettings: AppSettings) => {
