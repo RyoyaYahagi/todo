@@ -16,61 +16,100 @@ interface TaskFormProps {
 }
 
 /**
- * タスク追加フォーム（4タブ切り替えUI）
+ * タスク追加フォーム
  * 
- * - 時間タブ: 日付・時刻を手動設定
- * - 繰り返しタブ: 繰り返しルールを設定
- * - 優先度タブ: 優先度を設定（自動スケジュール対象）
- * - なしタブ: 設定なし（プールに追加のみ）
+ * 2択: 自動スケジュール（優先度）or 手動スケジュール（日時指定）
+ * 手動の場合: 繰り返しオプションあり
  */
 export const TaskForm: React.FC<TaskFormProps> = ({ onAdd, maxPriority = 5 }) => {
     const [title, setTitle] = useState('');
-    const [scheduleType, setScheduleType] = useState<TaskScheduleType>('priority');
 
-    // 優先度タブ用
+    // スケジュールタイプ: 'priority'（自動）or 'time'（手動）
+    const [isManual, setIsManual] = useState(false);
+
+    // 優先度（自動スケジュール用）
     const [priority, setPriority] = useState<Priority>(3);
 
-    // 時間タブ用
+    // 日時指定（手動スケジュール用）
     const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [selectedTime, setSelectedTime] = useState('09:00');
 
-    // 繰り返しタブ用
-    const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>('daily');
+    // 繰り返し設定
+    const [isRecurring, setIsRecurring] = useState(false);
+    const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>('weekly');
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!title.trim()) return;
 
-        switch (scheduleType) {
-            case 'priority':
-                onAdd(title, 'priority', { priority });
-                break;
-            case 'time':
-                const dateTime = new Date(`${selectedDate}T${selectedTime}:00`);
-                onAdd(title, 'time', { manualScheduledTime: dateTime.getTime() });
-                break;
-            case 'recurrence':
+        const dateTime = new Date(`${selectedDate}T${selectedTime}:00`);
+
+        if (isManual) {
+            // 手動スケジュール（日時指定）
+            if (isRecurring) {
+                // 繰り返しあり
                 onAdd(title, 'recurrence', {
+                    manualScheduledTime: dateTime.getTime(),
                     recurrence: { type: recurrenceType }
                 });
-                break;
-            case 'none':
-                onAdd(title, 'none');
-                break;
+            } else {
+                // 1回のみ
+                onAdd(title, 'time', {
+                    manualScheduledTime: dateTime.getTime()
+                });
+            }
+        } else {
+            // 自動スケジュール（優先度）
+            onAdd(title, 'priority', { priority });
         }
 
         // フォームリセット
         setTitle('');
         setPriority(3);
-        setScheduleType('priority');
+        setIsManual(false);
+        setIsRecurring(false);
     };
 
-    const renderTabContent = () => {
-        switch (scheduleType) {
-            case 'priority':
-                return (
+    return (
+        <form onSubmit={handleSubmit} className="task-form">
+            {/* タスク名入力 */}
+            <div className="form-group">
+                <label htmlFor="task-title">タスク名</label>
+                <input
+                    id="task-title"
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="新しいタスクを入力..."
+                    required
+                />
+            </div>
+
+            {/* スケジュールタイプ選択（2択） */}
+            <div className="schedule-type-tabs">
+                <button
+                    type="button"
+                    className={`tab-button ${!isManual ? 'active' : ''}`}
+                    onClick={() => setIsManual(false)}
+                >
+                    ⭐ 自動スケジュール
+                </button>
+                <button
+                    type="button"
+                    className={`tab-button ${isManual ? 'active' : ''}`}
+                    onClick={() => setIsManual(true)}
+                >
+                    🕐 日時を指定
+                </button>
+            </div>
+
+            {/* タブコンテンツ */}
+            <div className="tab-content">
+                {!isManual ? (
+                    // 自動スケジュール: 優先度選択
                     <div className="form-group">
                         <label>優先度 (1:低 - {maxPriority}:高)</label>
+                        <p className="hint-text">休日に自動で予定に入ります</p>
                         <div className="priority-selector">
                             {Array.from({ length: maxPriority }, (_, i) => i + 1).map((p) => (
                                 <label key={p} className={`priority-label ${priority === p ? 'selected' : ''}`}>
@@ -86,102 +125,56 @@ export const TaskForm: React.FC<TaskFormProps> = ({ onAdd, maxPriority = 5 }) =>
                             ))}
                         </div>
                     </div>
-                );
-            case 'time':
-                return (
-                    <div className="form-group">
-                        <label>日時指定</label>
-                        <div className="datetime-inputs">
-                            <input
-                                type="date"
-                                value={selectedDate}
-                                onChange={(e) => setSelectedDate(e.target.value)}
-                                className="date-input"
-                            />
-                            <input
-                                type="time"
-                                value={selectedTime}
-                                onChange={(e) => setSelectedTime(e.target.value)}
-                                className="time-input"
-                            />
+                ) : (
+                    // 手動スケジュール: 日時指定 + 繰り返しオプション
+                    <>
+                        <div className="form-group">
+                            <label>日時を選択</label>
+                            <div className="datetime-inputs">
+                                <input
+                                    type="date"
+                                    value={selectedDate}
+                                    onChange={(e) => setSelectedDate(e.target.value)}
+                                    className="date-input"
+                                />
+                                <input
+                                    type="time"
+                                    value={selectedTime}
+                                    onChange={(e) => setSelectedTime(e.target.value)}
+                                    className="time-input"
+                                />
+                            </div>
                         </div>
-                    </div>
-                );
-            case 'recurrence':
-                return (
-                    <div className="form-group">
-                        <label>繰り返し設定</label>
-                        <select
-                            value={recurrenceType}
-                            onChange={(e) => setRecurrenceType(e.target.value as RecurrenceType)}
-                            className="recurrence-select"
-                        >
-                            <option value="daily">毎日</option>
-                            <option value="weekly">毎週</option>
-                            <option value="monthly">毎月</option>
-                            <option value="yearly">毎年</option>
-                            <option value="weekdays">毎平日（月〜金）</option>
-                        </select>
-                    </div>
-                );
-            case 'none':
-                return (
-                    <div className="form-group">
-                        <p className="none-description">設定なしでプールに追加します。後からスケジュールできます。</p>
-                    </div>
-                );
-        }
-    };
 
-    return (
-        <form onSubmit={handleSubmit} className="task-form">
-            <div className="form-group">
-                <label htmlFor="task-title">タスク名</label>
-                <input
-                    id="task-title"
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="新しいタスクを入力..."
-                    required
-                />
-            </div>
+                        {/* 繰り返し設定 */}
+                        <div className="form-group recurrence-section">
+                            <label className="recurrence-toggle">
+                                <input
+                                    type="checkbox"
+                                    checked={isRecurring}
+                                    onChange={(e) => setIsRecurring(e.target.checked)}
+                                />
+                                <span>🔁 繰り返す</span>
+                            </label>
 
-            {/* タブ切り替え */}
-            <div className="schedule-type-tabs">
-                <button
-                    type="button"
-                    className={`tab-button ${scheduleType === 'priority' ? 'active' : ''}`}
-                    onClick={() => setScheduleType('priority')}
-                >
-                    ⭐ 優先度
-                </button>
-                <button
-                    type="button"
-                    className={`tab-button ${scheduleType === 'time' ? 'active' : ''}`}
-                    onClick={() => setScheduleType('time')}
-                >
-                    🕐 時間
-                </button>
-                <button
-                    type="button"
-                    className={`tab-button ${scheduleType === 'recurrence' ? 'active' : ''}`}
-                    onClick={() => setScheduleType('recurrence')}
-                >
-                    🔁 繰り返し
-                </button>
-                <button
-                    type="button"
-                    className={`tab-button ${scheduleType === 'none' ? 'active' : ''}`}
-                    onClick={() => setScheduleType('none')}
-                >
-                    📝 なし
-                </button>
-            </div>
-
-            {/* タブコンテンツ */}
-            <div className="tab-content">
-                {renderTabContent()}
+                            {isRecurring && (
+                                <div className="recurrence-options">
+                                    <select
+                                        value={recurrenceType}
+                                        onChange={(e) => setRecurrenceType(e.target.value as RecurrenceType)}
+                                        className="recurrence-select"
+                                    >
+                                        <option value="daily">毎日</option>
+                                        <option value="weekly">毎週</option>
+                                        <option value="weekdays">毎平日（月〜金）</option>
+                                        <option value="monthly">毎月</option>
+                                        <option value="yearly">毎年</option>
+                                    </select>
+                                </div>
+                            )}
+                        </div>
+                    </>
+                )}
             </div>
 
             <button type="submit" className="btn-primary">追加</button>

@@ -1021,3 +1021,36 @@ input[type="file"] {
   font-size: 0.9rem;
   margin-right: 0.25rem;
 }
+
+/* Hint Text */
+.hint-text {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+/* Recurrence Section */
+.recurrence-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed #eee;
+}
+
+.recurrence-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.recurrence-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary-color);
+}
+
+.recurrence-options {
+  margin-top: 0.75rem;
+  padding-left: 1.5rem;
+}
