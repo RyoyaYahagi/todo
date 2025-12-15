@@ -158,18 +158,20 @@ export function useSupabaseQuery() {
      * scheduleType === 'priority' の場合のみ自動スケジューリングを実行
      */
     const addTaskMutation = useMutation({
-        mutationFn: async ({ title, scheduleType, priority, manualScheduledTime, recurrence }: {
+        mutationFn: async ({ id, title, scheduleType, priority, manualScheduledTime, recurrence, createdAt }: {
+            id: string;
             title: string;
             scheduleType: TaskScheduleType;
             priority?: Priority;
             manualScheduledTime?: number;
             recurrence?: RecurrenceRule;
+            createdAt: number;
         }) => {
             const newTask: Task = {
-                id: crypto.randomUUID(),
+                id,
                 title,
                 scheduleType,
-                createdAt: Date.now(),
+                createdAt,
                 priority,
                 manualScheduledTime,
                 recurrence
@@ -177,19 +179,19 @@ export function useSupabaseQuery() {
             await supabaseDb.addTask(newTask);
             return newTask;
         },
-        onMutate: async ({ title, scheduleType, priority, manualScheduledTime, recurrence }) => {
+        onMutate: async ({ id, title, scheduleType, priority, manualScheduledTime, recurrence, createdAt }) => {
             // キャンセル中のクエリをキャンセル
             await queryClient.cancelQueries({ queryKey: QUERY_KEYS.tasks });
 
             // 現在のキャッシュを保存（ロールバック用）
             const previousTasks = queryClient.getQueryData<Task[]>(QUERY_KEYS.tasks);
 
-            // 楽観的更新: DB保存前にUIを更新
+            // 楽観的更新: DB保存前にUIを更新（同じIDを使用）
             const optimisticTask: Task = {
-                id: crypto.randomUUID(),
+                id,
                 title,
                 scheduleType,
-                createdAt: Date.now(),
+                createdAt,
                 priority,
                 manualScheduledTime,
                 recurrence
@@ -202,16 +204,13 @@ export function useSupabaseQuery() {
         },
         onError: (_err, _variables, context) => {
             // エラー時はロールバック
+            console.error('タスク追加エラー:', _err);
             if (context?.previousTasks) {
                 queryClient.setQueryData(QUERY_KEYS.tasks, context.previousTasks);
             }
         },
-        onSuccess: (newTask, _variables, context) => {
-            // 楽観的更新のIDを実際のタスクIDに更新
-            queryClient.setQueryData<Task[]>(QUERY_KEYS.tasks, (old) => {
-                if (!old) return [newTask];
-                return old.map(t => t.id === context?.optimisticTask.id ? newTask : t);
-            });
+        onSuccess: (newTask) => {
+            // IDは既に一致しているので置き換え不要、キャッシュはそのまま維持
 
             // 優先度タスクの場合のみ自動スケジューリング（バックグラウンド）
             if (newTask.scheduleType === 'priority') {
@@ -455,9 +454,15 @@ export function useSupabaseQuery() {
             recurrence?: RecurrenceRule;
         }
     ) => {
+        // IDとタイムスタンプを事前生成して楽観的更新と一致させる
+        const id = crypto.randomUUID();
+        const createdAt = Date.now();
+
         await addTaskMutation.mutateAsync({
+            id,
             title,
             scheduleType,
+            createdAt,
             priority: options?.priority,
             manualScheduledTime: options?.manualScheduledTime,
             recurrence: options?.recurrence
