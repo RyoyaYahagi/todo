@@ -377,15 +377,16 @@ export function useSupabaseQuery() {
             const previousScheduled = queryClient.getQueryData<ScheduledTask[]>(QUERY_KEYS.scheduledTasks);
 
             // 楽観的更新: 指定されたタスクを即座にUIに反映
+            // 楽観的更新: 指定されたタスクを即座にUIに反映（追加・更新）
             queryClient.setQueryData<ScheduledTask[]>(QUERY_KEYS.scheduledTasks, (old) => {
-                if (!old) return newScheduledTasks;
-                const updatedIds = new Set(newScheduledTasks.map(t => t.id));
-                return old.map(t => {
-                    if (updatedIds.has(t.id)) {
-                        return newScheduledTasks.find(nt => nt.id === t.id) || t;
-                    }
-                    return t;
+                const current = old || [];
+                const taskMap = new Map(current.map(t => [t.id, t]));
+
+                newScheduledTasks.forEach(nt => {
+                    taskMap.set(nt.id, nt);
                 });
+
+                return Array.from(taskMap.values());
             });
 
             return { previousScheduled };

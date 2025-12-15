@@ -52,11 +52,37 @@ function App() {
   useNotifications(settings, tasks, events, scheduledTasks, saveScheduledTasks);
 
   // Complete a scheduled task
-  const completeTask = (id: string) => {
-    const updated = scheduledTasks.map(t =>
-      t.id === id ? { ...t, isCompleted: !t.isCompleted } : t
-    );
-    saveScheduledTasks(updated);
+  const completeTask = async (id: string, isScheduled: boolean) => {
+    if (isScheduled) {
+      const target = scheduledTasks.find(t => t.id === id);
+      if (!target) return;
+
+      const updatedTask = { ...target, isCompleted: !target.isCompleted };
+
+      // DB update (only changed item) - optimistic update is handled in useSupabaseQuery
+      await saveScheduledTasks([updatedTask]);
+    } else {
+      // Complete unscheduled task
+      const task = tasks.find(t => t.id === id);
+      if (!task) return;
+
+      const newScheduledTask: import('./types').ScheduledTask = {
+        id: crypto.randomUUID(),
+        taskId: task.id,
+        title: task.title,
+        createdAt: task.createdAt,
+        scheduleType: task.scheduleType,
+        priority: task.priority,
+        manualScheduledTime: task.manualScheduledTime,
+        recurrence: task.recurrence,
+        scheduledTime: Date.now(),
+        isCompleted: true,
+        recurrenceSourceId: undefined
+      };
+
+      // DB update
+      await saveScheduledTasks([newScheduledTask]);
+    }
   };
 
   const handlePriorityChange = async (taskId: string, newPriority: 1 | 2 | 3 | 4 | 5) => {

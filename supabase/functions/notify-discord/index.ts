@@ -249,16 +249,17 @@ Deno.serve(async (req) => {
 
             console.log(`[notify-discord] 対象時刻: ${targetJSTH}:${targetJSTM} (${settings.notify_before_task_minutes}分後)`)
 
-            // 今日の未完了タスクを全て取得
+            // 今日の未完了・未通知タスクを取得
             const { data: tasks } = await supabase
                 .from('scheduled_tasks')
                 .select('id, title, priority, scheduled_time, is_completed, notified_at')
                 .eq('user_id', userId)
                 .eq('is_completed', false)
+                .is('notified_at', null) // 未通知のものだけ
                 .gte('scheduled_time', `${todayJST}T00:00:00`)
                 .lte('scheduled_time', `${todayJST}T23:59:59`)
 
-            console.log(`[notify-discord] 今日のタスク: ${tasks?.length || 0}件`)
+            console.log(`[notify-discord] 今日の未通知タスク: ${tasks?.length || 0}件`)
 
             for (const task of (tasks as ScheduledTaskRow[]) || []) {
                 const taskTime = new Date(task.scheduled_time)
@@ -266,27 +267,37 @@ Deno.serve(async (req) => {
                 const taskJSTH = (taskTime.getUTCHours() + 9) % 24
                 const taskJSTM = taskTime.getUTCMinutes()
 
-                console.log(`[notify-discord] タスク「${task.title}」: ${taskJSTH}:${taskJSTM}, 通知済み=${!!task.notified_at}`)
+                console.log(`[notify-discord] タスク「${task.title}」: ${taskJSTH}:${taskJSTM}`)
 
                 // 時間と分が一致するか確認
                 if (taskJSTH === targetJSTH && taskJSTM === targetJSTM) {
-                    // 既に通知済みでないか確認
-                    if (!task.notified_at) {
-                        console.log('[notify-discord] タスク通知送信!')
+                    console.log('[notify-discord] 通知タイミング到来。送信権ロックを試行...')
+
+                    // アトミックに通知済みフラグを更新（排他制御）
+                    // 成功した（更新できた）場合のみ通知処理に進む
+                    const { data: updatedTask, error: updateError } = await supabase
+                        .from('scheduled_tasks')
+                        .update({ notified_at: new Date().toISOString() })
+                        .eq('id', task.id)
+                        .is('notified_at', null) // 二重チェック
+                        .select()
+                        .single()
+
+                    if (updatedTask && !updateError) {
+                        console.log('[notify-discord] ロック獲得成功。Discord通知送信...')
                         const sent = await sendDiscordNotification(
                             settings.discord_webhook_url,
                             `⏰ **タスク開始 ${settings.notify_before_task_minutes}分前**\n・${task.title} (優先度: ${task.priority})`
                         )
 
                         if (sent) {
-                            // 通知済みとしてマーク
-                            await supabase
-                                .from('scheduled_tasks')
-                                .update({ notified_at: new Date().toISOString() })
-                                .eq('id', task.id)
-
                             notifiedCount.taskReminder++
+                        } else {
+                            console.error('[notify-discord] 送信失敗。notified_atは更新済みのままスキップ')
+                            // 必要ならここでnotified_atをnullに戻す処理を入れるが、再送ループを防ぐためこのままにする
                         }
+                    } else {
+                        console.log('[notify-discord] 既に他プロセスが処理済みのためスキップ')
                     }
                 }
             }
