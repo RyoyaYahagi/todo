@@ -245,6 +245,15 @@ function App() {
               onUpdatePriority={handlePriorityChange}
               onEdit={handleEditTask}
               maxPriority={settings.maxPriority}
+              onDeleteCompleted={async () => {
+                // 完了済みタスクを一括削除
+                const completedTaskIds = scheduledTasks
+                  .filter(st => st.isCompleted)
+                  .map(st => st.taskId);
+                for (const id of completedTaskIds) {
+                  await deleteTask(id);
+                }
+              }}
             />
           </div>
         )}
