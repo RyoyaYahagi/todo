@@ -749,6 +749,9 @@ input[type="file"] {
   /* スマホ（画面幅が狭い時）は右端基準 */
   right: 1.5rem;
   z-index: 90;
+  /* 位置変更時のアニメーションを無効化 */
+  transform: none !important;
+  transition: none;
 }
 
 @media (min-width: 640px) {
@@ -758,6 +761,9 @@ input[type="file"] {
     left: 50%;
     /* コンテンツ幅の半分(300px) - ボタンサイズ(約60px) - 余白(約20px) = 220px */
     margin-left: 220px;
+    /* 位置変更時のアニメーションを無効化 */
+    transform: none !important;
+    transition: none;
   }
 }
 
