@@ -362,7 +362,7 @@ export const Settings: React.FC<SettingsProps> = ({
                             disabled={!localSettings.notifyBeforeTask}
                             style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ccc' }}
                         >
-                            <option value={0}>なし</option>
+                            <option value={0}>0分前（開始時）</option>
                             <option value={5}>5分前</option>
                             <option value={10}>10分前</option>
                             <option value={15}>15分前</option>
