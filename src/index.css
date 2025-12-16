@@ -229,9 +229,9 @@ body {
 }
 
 .btn-secondary {
-  background: #eef2f7;
-  color: var(--primary-dark);
-  border: none;
+  background: var(--bg-secondary);
+  color: var(--primary-color);
+  border: 1px solid var(--border-color);
   padding: 0.6rem 1rem;
   border-radius: var(--radius-md);
   font-weight: 500;
@@ -524,8 +524,8 @@ input[type="file"] {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  background: #e0e0e0;
-  color: #333333;
+  background: #a0a0a0;
+  color: #1a1a1a;
   border-radius: 2px;
   margin-bottom: 1px;
   padding: 1px 2px;
