@@ -85,9 +85,28 @@ const defaultSettings: AppSettings = {
 // isHoliday テスト
 // =========================================
 describe('isHoliday - 休日判定ロジック', () => {
-    it('イベントがない日は休日として判定される', () => {
-        const date = new Date('2024-01-15');
+    // 予定表読み込み前（イベントなし）のテスト
+    it('予定表読み込み前: イベントがない土日は休日として判定される', () => {
+        const date = new Date('2024-01-13'); // 土曜日
         const events: WorkEvent[] = [];
+
+        expect(isHoliday(date, events)).toBe(true);
+    });
+
+    it('予定表読み込み前: イベントがない平日は休日ではない', () => {
+        const date = new Date('2024-01-15'); // 月曜日
+        const events: WorkEvent[] = [];
+
+        expect(isHoliday(date, events)).toBe(false);
+    });
+
+    // 予定表読み込み後（イベントあり）のテスト
+    it('予定表読み込み後: イベントがない日は休日として判定される', () => {
+        const date = new Date('2024-01-15'); // 月曜日
+        // 他の日にイベントがある（ICS読み込み済みの状態）
+        const events: WorkEvent[] = [
+            createMockEvent(new Date('2024-01-14T09:00:00'), '日勤'),
+        ];
 
         expect(isHoliday(date, events)).toBe(true);
     });
@@ -138,11 +157,11 @@ describe('isHoliday - 休日判定ロジック', () => {
         expect(isHoliday(date, events)).toBe(true);
     });
 
-    it('異なる日のイベントは判定に影響しない', () => {
-        const date = new Date('2024-01-15');
+    it('異なる日のイベントは判定に影響しない（土日は休日）', () => {
+        const date = new Date('2024-01-13'); // 土曜日
         const events: WorkEvent[] = [
-            createMockEvent(new Date('2024-01-14T09:00:00'), '日勤'),
-            createMockEvent(new Date('2024-01-16T09:00:00'), '夜勤'),
+            createMockEvent(new Date('2024-01-12T09:00:00'), '日勤'),
+            createMockEvent(new Date('2024-01-14T09:00:00'), '夜勤'),
         ];
 
         expect(isHoliday(date, events)).toBe(true);
@@ -425,13 +444,14 @@ describe('reschedulePendingTasks - 自動スケジューリング', () => {
 // scheduleTasksForHoliday テスト
 // =========================================
 describe('scheduleTasksForHoliday - 休日タスクスケジューリング', () => {
-    const holidayDate = new Date('2024-01-15');
+    const holidayDate = new Date('2024-01-13'); // 土曜日
 
     it('休日でない日はスケジュールを生成しない', () => {
+        const weekday = new Date('2024-01-15'); // 月曜日（イベントなしの平日は休日ではない）
         const tasks: Task[] = [createMockTask('task-1', 'タスク1', 'priority', 3)];
-        const events: WorkEvent[] = [createMockEvent(holidayDate, '日勤')];
+        const events: WorkEvent[] = [];
 
-        const result = scheduleTasksForHoliday(holidayDate, tasks, events, defaultSettings);
+        const result = scheduleTasksForHoliday(weekday, tasks, events, defaultSettings);
 
         expect(result.length).toBe(0);
     });
@@ -457,20 +477,23 @@ describe('scheduleTasksForHoliday - 休日タスクスケジューリング', ()
     });
 
     it('前日夜勤明けの場合、午後からスケジュール開始', () => {
-        const prevDay = addDays(holidayDate, -1);
+        const saturday = new Date('2024-01-13'); // 土曜日
+        const friday = new Date('2024-01-12'); // 金曜日
+        const saturdayMorning = new Date('2024-01-13T07:00:00');
         const events: WorkEvent[] = [
             createMockEvent(
-                new Date(prevDay.setHours(22, 0, 0, 0)),
+                new Date(friday.setHours(22, 0, 0, 0)),
                 '夜勤',
-                new Date(holidayDate.setHours(7, 0, 0, 0))
+                saturdayMorning
             ),
         ];
 
         const tasks: Task[] = [createMockTask('task-1', 'タスク1', 'priority', 3)];
 
-        const result = scheduleTasksForHoliday(new Date('2024-01-15'), tasks, events, defaultSettings);
+        const result = scheduleTasksForHoliday(saturday, tasks, events, defaultSettings);
 
         // 前日の夜勤終了が7時（12時未満）なので午後開始
+        expect(result.length).toBe(1);
         const scheduledHour = new Date(result[0].scheduledTime).getHours();
         expect(scheduledHour).toBe(defaultSettings.startTimeAfternoon);
     });
@@ -480,45 +503,50 @@ describe('scheduleTasksForHoliday - 休日タスクスケジューリング', ()
 // findNextHolidays テスト
 // =========================================
 describe('findNextHolidays - 休日検索', () => {
-    const today = new Date('2024-01-15');
 
-    it('指定した数の休日を返す', () => {
+    it('指定した数の休日を返す（土日から開始）', () => {
+        const saturday = new Date('2024-01-13'); // 土曜日から開始
         const events: WorkEvent[] = [];
-        const result = findNextHolidays(today, events, [], 3);
+        const result = findNextHolidays(saturday, events, [], 3);
 
         expect(result.length).toBe(3);
     });
 
-    it('勤務日を除いて休日を返す', () => {
+    it('予定がある日を除いて休日を返す', () => {
+        const saturday = new Date('2024-01-13'); // 土曜日
         const events: WorkEvent[] = [
-            createMockEvent(new Date('2024-01-15'), '日勤'),
-            createMockEvent(new Date('2024-01-16'), '日勤'),
+            createMockEvent(new Date('2024-01-13'), '日勤'), // 土曜日に予定
+            createMockEvent(new Date('2024-01-14'), '日勤'), // 日曜日に予定
         ];
 
-        const result = findNextHolidays(today, events, [], 3, true);
+        const result = findNextHolidays(saturday, events, [], 3, true);
 
-        // 1/15, 1/16は勤務日なので1/17以降が返される
-        expect(result[0].getDate()).toBeGreaterThanOrEqual(17);
+        // 1/13, 1/14は予定ありなので、1/15（イベントなし=休日）以降が返される
+        // ※ 予定表読み込み後は、イベントがない日は休日として扱われる
+        expect(result[0].getDate()).toBeGreaterThanOrEqual(15);
     });
 
     it('すでにタスクが3件ある日は候補から除外', () => {
+        const saturday = new Date('2024-01-13'); // 土曜日
         const scheduledTasks: ScheduledTask[] = [
-            createMockScheduledTask('t1', 'タスク1', new Date('2024-01-15T08:00:00').getTime(), false),
-            createMockScheduledTask('t2', 'タスク2', new Date('2024-01-15T10:00:00').getTime(), false),
-            createMockScheduledTask('t3', 'タスク3', new Date('2024-01-15T12:00:00').getTime(), false),
+            createMockScheduledTask('t1', 'タスク1', new Date('2024-01-13T08:00:00').getTime(), false),
+            createMockScheduledTask('t2', 'タスク2', new Date('2024-01-13T10:00:00').getTime(), false),
+            createMockScheduledTask('t3', 'タスク3', new Date('2024-01-13T12:00:00').getTime(), false),
         ];
 
-        const result = findNextHolidays(today, [], scheduledTasks, 3, true);
+        const result = findNextHolidays(saturday, [], scheduledTasks, 3, true);
 
-        // 1/15は3件あるので除外、1/16以降が返される
-        expect(result[0].getDate()).toBeGreaterThan(15);
+        // 1/13は3件あるので除外、1/14（日曜日）以降が返される
+        expect(result[0].getDate()).toBeGreaterThan(13);
     });
 
     it('includeStartDate=falseの場合、開始日を含まない', () => {
+        const saturday = new Date('2024-01-13'); // 土曜日
         const events: WorkEvent[] = [];
-        const result = findNextHolidays(today, events, [], 1, false);
+        const result = findNextHolidays(saturday, events, [], 1, false);
 
-        expect(result[0].getDate()).toBe(16);
+        // 1/13を含まないので、1/14（日曜日）が返される
+        expect(result[0].getDate()).toBe(14);
     });
 });
 

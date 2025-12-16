@@ -77,14 +77,79 @@ export function getNextOccurrence(rule: RecurrenceRule, lastScheduledTime: numbe
 }
 
 /**
+ * 日本の祝日かどうかを判定する（簡易版）
+ * 
+ * 固定祝日と一部の変動祝日に対応
+ * ※春分の日・秋分の日は年によって異なるため近似値を使用
+ * 
+ * @param date - 判定対象の日付
+ * @returns 祝日の場合true
+ */
+function isJapaneseHoliday(date: Date): boolean {
+    const month = date.getMonth() + 1; // 1-indexed
+    const day = date.getDate();
+    const dayOfWeek = getDay(date); // 0=日, 1=月, ...
+
+    // 固定祝日
+    const fixedHolidays: { [key: string]: boolean } = {
+        '1-1': true,   // 元日
+        '2-11': true,  // 建国記念の日
+        '2-23': true,  // 天皇誕生日
+        '4-29': true,  // 昭和の日
+        '5-3': true,   // 憲法記念日
+        '5-4': true,   // みどりの日
+        '5-5': true,   // こどもの日
+        '8-11': true,  // 山の日
+        '11-3': true,  // 文化の日
+        '11-23': true, // 勤労感謝の日
+    };
+
+    if (fixedHolidays[`${month}-${day}`]) {
+        return true;
+    }
+
+    // 春分の日（3月20日または21日、概算）
+    if (month === 3 && (day === 20 || day === 21)) {
+        return true;
+    }
+
+    // 秋分の日（9月22日または23日、概算）
+    if (month === 9 && (day === 22 || day === 23)) {
+        return true;
+    }
+
+    // ハッピーマンデー制度
+    // 成人の日: 1月第2月曜日
+    if (month === 1 && dayOfWeek === 1 && day >= 8 && day <= 14) {
+        return true;
+    }
+    // 海の日: 7月第3月曜日
+    if (month === 7 && dayOfWeek === 1 && day >= 15 && day <= 21) {
+        return true;
+    }
+    // 敬老の日: 9月第3月曜日
+    if (month === 9 && dayOfWeek === 1 && day >= 15 && day <= 21) {
+        return true;
+    }
+    // スポーツの日: 10月第2月曜日
+    if (month === 10 && dayOfWeek === 1 && day >= 8 && day <= 14) {
+        return true;
+    }
+
+    return false;
+}
+
+/**
  * 指定日が休日（タスクをスケジュールできる日）かどうかを判定する
  * 
  * 判定優先順位:
- * 1. 「スケジュール対象」がある → 休日として扱う（勤務日でも強制対象）
+ * 1. 「スケジュール対象」がある → 休日として扱う（予定ありでも強制対象）
  * 2. 「スケジュール除外」がある → 休日ではない（休日でも強制除外）
- * 3. イベントなし → 休日
- * 4. 「休み」がある → 休日
- * 5. 勤務イベント（日勤/夜勤/その他） → 休日ではない
+ * 3. 「休み」がある → 休日
+ * 4. 日勤/夜勤/その他がある → 休日ではない（予定あり）
+ * 5. イベントなし:
+ *    - 予定表読み込み前（全体イベント0件）→ 土日祝は休日
+ *    - 予定表読み込み後（全体イベント1件以上）→ その日は休日
  * 
  * @param date - 判定対象の日付
  * @param events - 判定に使用するイベント配列
@@ -93,7 +158,7 @@ export function getNextOccurrence(rule: RecurrenceRule, lastScheduledTime: numbe
 export function isHoliday(date: Date, events: WorkEvent[]): boolean {
     const dayEvents = events.filter(e => isSameDay(e.start, date));
 
-    // 「スケジュール対象」イベントがある場合は休日（勤務日でも強制的にスケジュール対象）
+    // 「スケジュール対象」イベントがある場合は休日（予定ありでも強制的にスケジュール対象）
     const hasForceIncluded = dayEvents.some(e => e.eventType === 'スケジュール対象');
     if (hasForceIncluded) {
         return true;
@@ -105,19 +170,34 @@ export function isHoliday(date: Date, events: WorkEvent[]): boolean {
         return false;
     }
 
-    // イベントがない日は休日
-    if (dayEvents.length === 0) {
-        return true;
-    }
-
     // 「休み」イベントがある場合は休日
     const hasYasumi = dayEvents.some(e => e.eventType === '休み');
     if (hasYasumi) {
         return true;
     }
 
-    // 勤務イベント（日勤/夜勤）または非勤務イベント（その他）がある場合は休日ではない
-    return false;
+    // 予定（日勤/夜勤/その他）がある場合は休日ではない
+    const hasWork = dayEvents.some(e =>
+        e.eventType === '日勤' || e.eventType === '夜勤' || e.eventType === 'その他'
+    );
+    if (hasWork) {
+        return false;
+    }
+
+    // イベントがない日の判定
+    // 予定表（ICS）を読み込んでいるかどうかで振る舞いを変える
+    // スケジュール対象/除外以外のイベントがあるかどうかで判定
+    const hasCalendarEvents = events.some(e =>
+        e.eventType !== 'スケジュール対象' && e.eventType !== 'スケジュール除外'
+    );
+
+    if (hasCalendarEvents) {
+        // 予定表読み込み後: イベントがない日は休日
+        return true;
+    } else {
+        // 予定表読み込み前: 土日祝のみ休日（一般的なカレンダーに準拠）
+        return isWeekend(date) || isJapaneseHoliday(date);
+    }
 }
 
 export function getPreviousWorkEndTime(date: Date, events: WorkEvent[]): Date | null {
