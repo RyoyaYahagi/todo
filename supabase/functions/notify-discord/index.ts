@@ -208,14 +208,22 @@ Deno.serve(async (req) => {
             console.log(`[notify-discord] 明日(${tomorrowJST})は休日: ${isTomorrowHoliday}`)
 
             if (isTomorrowHoliday) {
-                // 明日の未完了タスクを取得（DBはUTCで保存されているが、日付文字列で範囲検索）
+                // 明日の未完了タスクを取得
+                // JST日付をUTCに変換してクエリ（DBはUTCで保存されている）
+                const tomorrowStartJST = new Date(`${tomorrowJST}T00:00:00+09:00`)
+                const tomorrowEndJST = new Date(`${tomorrowJST}T23:59:59+09:00`)
+                const tomorrowStartUTC = tomorrowStartJST.toISOString()
+                const tomorrowEndUTC = tomorrowEndJST.toISOString()
+
+                console.log(`[notify-discord] タスク検索範囲: ${tomorrowStartUTC} ～ ${tomorrowEndUTC}`)
+
                 const { data: tasks, error: tasksError } = await supabase
                     .from('scheduled_tasks')
                     .select('id, title, priority, scheduled_time, is_completed')
                     .eq('user_id', userId)
                     .eq('is_completed', false)
-                    .gte('scheduled_time', `${tomorrowJST}T00:00:00`)
-                    .lt('scheduled_time', `${tomorrowJST}T23:59:59`)
+                    .gte('scheduled_time', tomorrowStartUTC)
+                    .lt('scheduled_time', tomorrowEndUTC)
                     .order('scheduled_time', { ascending: true })
 
                 console.log(`[notify-discord] 明日のタスク: ${tasks?.length || 0}件, error=${tasksError?.message || 'なし'}`)
@@ -250,14 +258,20 @@ Deno.serve(async (req) => {
             console.log(`[notify-discord] 対象時刻: ${targetJSTH}:${targetJSTM} (${settings.notify_before_task_minutes}分後)`)
 
             // 今日の未完了・未通知タスクを取得
+            // JST日付をUTCに変換してクエリ
+            const todayStartJST = new Date(`${todayJST}T00:00:00+09:00`)
+            const todayEndJST = new Date(`${todayJST}T23:59:59+09:00`)
+            const todayStartUTC = todayStartJST.toISOString()
+            const todayEndUTC = todayEndJST.toISOString()
+
             const { data: tasks } = await supabase
                 .from('scheduled_tasks')
                 .select('id, title, priority, scheduled_time, is_completed, notified_at')
                 .eq('user_id', userId)
                 .eq('is_completed', false)
                 .is('notified_at', null) // 未通知のものだけ
-                .gte('scheduled_time', `${todayJST}T00:00:00`)
-                .lte('scheduled_time', `${todayJST}T23:59:59`)
+                .gte('scheduled_time', todayStartUTC)
+                .lte('scheduled_time', todayEndUTC)
 
             console.log(`[notify-discord] 今日の未通知タスク: ${tasks?.length || 0}件`)
 

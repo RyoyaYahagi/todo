@@ -277,38 +277,49 @@ export const supabaseDb = {
     /**
      * スケジュール済みタスクを保存
      */
+    /**
+     * スケジュール済みタスクをバッチで保存
+     *
+     * N+1クエリ問題を避けるため、1回のupsertで全タスクを保存する。
+     */
     async saveScheduledTasks(tasks: ScheduledTask[]): Promise<void> {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('認証が必要です');
 
+        if (tasks.length === 0) {
+            console.log('saveScheduledTasks: タスクなし、スキップ');
+            return;
+        }
+
         console.log('saveScheduledTasks called with:', tasks.length, 'tasks');
 
-        for (const task of tasks) {
-            console.log('Saving scheduled task:', task.id, task.title);
-            const { error } = await supabase
-                .from('scheduled_tasks')
-                .upsert({
-                    id: task.id,
-                    user_id: user.id,
-                    task_id: task.taskId,
-                    title: task.title,
-                    priority: task.priority ?? null,
-                    scheduled_time: new Date(task.scheduledTime).toISOString(),
-                    is_completed: task.isCompleted,
-                    notified_at: task.notifiedAt ? new Date(task.notifiedAt).toISOString() : null,
-                    created_at: new Date(task.createdAt).toISOString(),
-                    schedule_type: task.scheduleType,
-                    manual_scheduled_time: task.manualScheduledTime ? new Date(task.manualScheduledTime).toISOString() : null,
-                    recurrence: task.recurrence || null,
-                    recurrence_source_id: task.recurrenceSourceId || null
-                });
+        // バッチupsert用のレコード配列を構築
+        const records = tasks.map(task => ({
+            id: task.id,
+            user_id: user.id,
+            task_id: task.taskId,
+            title: task.title,
+            priority: task.priority ?? null,
+            scheduled_time: new Date(task.scheduledTime).toISOString(),
+            is_completed: task.isCompleted,
+            notified_at: task.notifiedAt ? new Date(task.notifiedAt).toISOString() : null,
+            created_at: new Date(task.createdAt).toISOString(),
+            schedule_type: task.scheduleType,
+            manual_scheduled_time: task.manualScheduledTime ? new Date(task.manualScheduledTime).toISOString() : null,
+            recurrence: task.recurrence || null,
+            recurrence_source_id: task.recurrenceSourceId || null
+        }));
 
-            if (error) {
-                console.error('Error saving scheduled task:', error);
-                throw error;
-            }
-            console.log('Saved scheduled task successfully:', task.id);
+        const { error } = await supabase
+            .from('scheduled_tasks')
+            .upsert(records);
+
+        if (error) {
+            console.error('Error saving scheduled tasks (batch):', error);
+            throw error;
         }
+
+        console.log('Saved', tasks.length, 'scheduled tasks successfully (batch)');
     },
 
     /**

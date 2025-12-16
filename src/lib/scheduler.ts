@@ -159,7 +159,9 @@ export function scheduleTasksForHoliday(
         let slotFound = false;
         let attempts = 0;
 
-        while (attempts < 8) { // 最大8スロットチェックすれば十分
+        // 1日の最大タスク数の3倍まで探索（余裕を持たせる）
+        const maxAttempts = (settings.maxTasksPerDay || 3) * 3;
+        while (attempts < maxAttempts) {
             const timeTime = currentStartTime.getTime();
 
             if (!occupiedTimes.has(timeTime)) {
@@ -335,7 +337,10 @@ export function reschedulePendingTasks(
     return { newSchedules, obsoleteScheduleIds };
 }
 
-// 互換性のために残すが、基本的には reschedulePendingTasks を使うべき
+/**
+ * @deprecated この関数は廃止予定です。代わりに reschedulePendingTasks を使用してください。
+ * 互換性のためにのみ残されています。
+ */
 export const scheduleTasksAcrossHolidays = (
     _tasks: Task[],
     _events: WorkEvent[],
