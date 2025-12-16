@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { Task, ScheduledTask, Priority } from '../types';
 import { format, isBefore, isToday, isTomorrow, isYesterday, startOfDay } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -16,6 +16,9 @@ interface TaskListProps {
 }
 
 export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDelete, onComplete, onUpdatePriority, onEdit, maxPriority = 5 }) => {
+    // 完了タスク折りたたみ状態
+    const [isCompletedExpanded, setIsCompletedExpanded] = useState(false);
+
     // 日付フォーマッター
     const getTaskDateLabel = (date: Date) => {
         if (isYesterday(date)) return <span className="date-text overdue">昨日 (期限切れ)</span>;
@@ -27,16 +30,20 @@ export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDel
 
     const todayDate = startOfDay(new Date());
 
-    // 1. 今日のタスク（期限切れ含む）
-    const dueTasks = scheduledTasks
+    // 完了/未完了でスケジュール済みタスクを分離
+    const completedScheduled = scheduledTasks.filter(t => t.isCompleted);
+    const activeScheduled = scheduledTasks.filter(t => !t.isCompleted);
+
+    // 1. 今日のタスク（期限切れ含む）- 未完了のみ
+    const dueTasks = activeScheduled
         .filter(t => {
             const date = new Date(t.scheduledTime);
             return isBefore(date, startOfDay(new Date(todayDate.getTime() + 86400000))); // 明日の0時より前 = 今日以前
         })
         .sort((a, b) => a.scheduledTime - b.scheduledTime);
 
-    // 2. それ以外のタスク（明日以降のスケジュール + 未定）
-    const futureScheduled = scheduledTasks
+    // 2. それ以外のタスク（明日以降のスケジュール + 未定）- 未完了のみ
+    const futureScheduled = activeScheduled
         .filter(t => {
             const date = new Date(t.scheduledTime);
             return !isBefore(date, startOfDay(new Date(todayDate.getTime() + 86400000)));
@@ -54,7 +61,8 @@ export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDel
         return b.createdAt - a.createdAt;
     });
 
-    const otherTasks = [...futureScheduled, ...sortedUnscheduled]; // 明日以降の後に未定を表示
+    // 完了タスク（完了日時で降順ソート）
+    const sortedCompleted = [...completedScheduled].sort((a, b) => b.scheduledTime - a.scheduledTime);
 
     // タスクタイプのアイコンを取得
     const getScheduleTypeIcon = (scheduleType?: string) => {
@@ -92,7 +100,13 @@ export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDel
                     </div>
                     <div className="task-meta-clean">
                         {isScheduled && item.scheduleType !== 'none' ? (
-                            getTaskDateLabel(new Date(item.scheduledTime))
+                            isCompleted ? (
+                                <span className="date-text" style={{ color: '#888' }}>
+                                    完了日: {format(new Date(item.scheduledTime), 'M月d日(eee)', { locale: ja })}
+                                </span>
+                            ) : (
+                                getTaskDateLabel(new Date(item.scheduledTime))
+                            )
                         ) : (
                             <span className="date-text" style={{ fontSize: '0.8rem', color: '#999' }}>未定</span>
                         )}
@@ -107,21 +121,25 @@ export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDel
                             </>
                         )}
 
-                        <span style={{ margin: '0 0.5rem', color: '#eee' }}>|</span>
-                        <select
-                            className={`priority-badge p-${item.priority ? Math.min(item.priority, maxPriority) : 0}`}
-                            value={item.priority ? Math.min(item.priority, maxPriority) : ''}
-                            onChange={(e) => {
-                                e.stopPropagation();
-                                onUpdatePriority(realTaskId, parseInt(e.target.value) as Priority);
-                            }}
-                            style={{ border: 'none', cursor: 'pointer', outline: 'none', fontSize: '0.75rem' }}
-                            onClick={(e) => e.stopPropagation()}
-                            disabled={!item.priority}
-                        >
-                            {/* 優先度がない場合は選択できないようにするか、P0などを出すか。ここでは非表示はせず操作不能に */}
-                            {item.priority ? Array.from({ length: maxPriority }, (_, i) => i + 1).map(p => <option key={p} value={p} style={{ color: 'black' }}>P{p}</option>) : <option value="">-</option>}
-                        </select>
+                        {!isCompleted && (
+                            <>
+                                <span style={{ margin: '0 0.5rem', color: '#eee' }}>|</span>
+                                <select
+                                    className={`priority-badge p-${item.priority ? Math.min(item.priority, maxPriority) : 0}`}
+                                    value={item.priority ? Math.min(item.priority, maxPriority) : ''}
+                                    onChange={(e) => {
+                                        e.stopPropagation();
+                                        onUpdatePriority(realTaskId, parseInt(e.target.value) as Priority);
+                                    }}
+                                    style={{ border: 'none', cursor: 'pointer', outline: 'none', fontSize: '0.75rem' }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    disabled={!item.priority}
+                                >
+                                    {/* 優先度がない場合は選択できないようにするか、P0などを出すか。ここでは非表示はせず操作不能に */}
+                                    {item.priority ? Array.from({ length: maxPriority }, (_, i) => i + 1).map(p => <option key={p} value={p} style={{ color: 'black' }}>P{p}</option>) : <option value="">-</option>}
+                                </select>
+                            </>
+                        )}
                     </div>
                 </div>
                 <button
@@ -165,7 +183,7 @@ export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDel
             )}
 
             {/* それ以外のタスク */}
-            {otherTasks.length > 0 && (
+            {(futureScheduled.length > 0 || sortedUnscheduled.length > 0) && (
                 <div className="task-group">
                     <h3 style={{ fontSize: '1.1rem', color: '#666', marginBottom: '0.8rem', paddingLeft: '0.5rem', borderLeft: '4px solid #ccc' }}>
                         今後の予定
@@ -174,6 +192,37 @@ export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDel
                         {futureScheduled.map(t => renderItem(t, true))}
                         {sortedUnscheduled.map(t => renderItem(t, false))}
                     </ul>
+                </div>
+            )}
+
+            {/* 完了タスク - 折りたたみセクション */}
+            {sortedCompleted.length > 0 && (
+                <div className="task-group completed-section" style={{ marginTop: '1.5rem' }}>
+                    <button
+                        onClick={() => setIsCompletedExpanded(!isCompletedExpanded)}
+                        style={{
+                            width: '100%',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '0.8rem 1rem',
+                            background: '#f5f5f5',
+                            border: '1px solid #e0e0e0',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '1rem',
+                            color: '#666',
+                        }}
+                    >
+                        <span>✓ 完了（{sortedCompleted.length}件）</span>
+                        <span style={{ fontSize: '1.2rem' }}>{isCompletedExpanded ? '∧' : '∨'}</span>
+                    </button>
+
+                    {isCompletedExpanded && (
+                        <ul className="task-list-clean" style={{ marginTop: '0.5rem', opacity: 0.7 }}>
+                            {sortedCompleted.map(t => renderItem(t, true))}
+                        </ul>
+                    )}
                 </div>
             )}
         </div>
