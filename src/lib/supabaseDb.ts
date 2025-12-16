@@ -367,8 +367,9 @@ export const supabaseDb = {
     },
 
     /**
-     * ユーザーの未完了スケジュール済みタスクを全て削除
+     * ユーザーの未完了・優先度ベースのスケジュール済みタスクを全て削除
      * (再スケジューリング時のクリーンアップ用)
+     * 手動設定タスク(time, recurrence, none)は削除しない
      */
     async deletePendingScheduledTasks(): Promise<void> {
         const { data: { user } } = await supabase.auth.getUser();
@@ -378,7 +379,8 @@ export const supabaseDb = {
             .from('scheduled_tasks')
             .delete()
             .eq('user_id', user.id)
-            .eq('is_completed', false);
+            .eq('is_completed', false)
+            .eq('schedule_type', 'priority'); // 優先度タスクのみ削除
 
         if (error) throw error;
     },
