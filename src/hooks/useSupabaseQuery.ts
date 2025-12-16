@@ -58,12 +58,15 @@ export function useSupabaseQuery() {
 
     /**
      * イベント取得クエリ
+     * 除外設定の変更時にキャッシュが上書きされないよう設定
      */
     const eventsQuery = useQuery({
         queryKey: QUERY_KEYS.events,
         queryFn: () => supabaseDb.getAllEvents(),
         enabled: isAuthReady,
         staleTime: 5 * 60 * 1000,
+        refetchOnWindowFocus: false, // ウィンドウフォーカス時に再取得しない
+        refetchOnMount: false, // マウント時に再取得しない（キャッシュ優先）
     });
 
     /**
@@ -385,6 +388,7 @@ export function useSupabaseQuery() {
 
     /**
      * イベント保存ミューテーション
+     * 除外設定の変更時も使用される
      */
     const saveEventsMutation = useMutation({
         mutationFn: async (newEvents: WorkEvent[]) => {
@@ -392,8 +396,10 @@ export function useSupabaseQuery() {
             return newEvents;
         },
         onMutate: async (newEvents) => {
+            // 進行中のクエリをキャンセル（競合防止）
             await queryClient.cancelQueries({ queryKey: QUERY_KEYS.events });
             const previousEvents = queryClient.getQueryData<WorkEvent[]>(QUERY_KEYS.events);
+            // 楽観的更新
             queryClient.setQueryData<WorkEvent[]>(QUERY_KEYS.events, newEvents);
             return { previousEvents };
         },
@@ -402,7 +408,10 @@ export function useSupabaseQuery() {
                 queryClient.setQueryData(QUERY_KEYS.events, context.previousEvents);
             }
         },
-        onSuccess: () => {
+        onSuccess: (newEvents) => {
+            // 成功後も明示的にキャッシュを設定（他の処理による上書き防止）
+            queryClient.setQueryData<WorkEvent[]>(QUERY_KEYS.events, newEvents);
+            // 自動スケジュールをバックグラウンドで実行
             runAutoScheduleBackground();
         },
     });
