@@ -78,9 +78,19 @@ export function getNextOccurrence(rule: RecurrenceRule, lastScheduledTime: numbe
 
 /**
  * 指定日が休日（タスクをスケジュールできる日）かどうかを判定する
+ * 
+ * @param date - 判定対象の日付
+ * @param events - 判定に使用するイベント配列
+ * @returns 休日（自動スケジュール可能）の場合true
  */
 export function isHoliday(date: Date, events: WorkEvent[]): boolean {
     const dayEvents = events.filter(e => isSameDay(e.start, date));
+
+    // 「スケジュール除外」イベントがある場合は休日ではない（自動スケジュール対象外）
+    const hasExcluded = dayEvents.some(e => e.eventType === 'スケジュール除外');
+    if (hasExcluded) {
+        return false;
+    }
 
     // イベントがない日は休日
     if (dayEvents.length === 0) {

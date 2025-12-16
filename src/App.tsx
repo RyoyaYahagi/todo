@@ -10,8 +10,9 @@ import { Login } from './components/Login';
 
 import { Modal } from './components/Modal';
 import { Tutorial } from './components/Tutorial';
-import type { Task } from './types'; // Ensure Task is imported
-import { getNextOccurrence } from './lib/scheduler'; // Added import
+import type { Task, WorkEvent } from './types';
+import { getNextOccurrence } from './lib/scheduler';
+import { isSameDay, startOfDay } from 'date-fns';
 
 function App() {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -97,7 +98,8 @@ function App() {
         priority: task.priority,
         manualScheduledTime: task.manualScheduledTime,
         recurrence: task.recurrence,
-        scheduledTime: Date.now(),
+        // 未スケジュールタスクを完了した場合、「今後の予定」に留まるよう1年後に設定
+        scheduledTime: task.manualScheduledTime || (Date.now() + 365 * 24 * 60 * 60 * 1000),
         isCompleted: true,
         recurrenceSourceId: undefined
       };
@@ -127,6 +129,39 @@ function App() {
   const closeTaskModal = () => {
     setIsTaskModalOpen(false);
     setEditingTask(null);
+  };
+
+  /**
+   * カレンダー日付タップで自動スケジュール除外/復帰をトグル
+   * 
+   * @param date - タップされた日付
+   */
+  const handleToggleExclude = async (date: Date) => {
+    const normalizedDate = startOfDay(date);
+
+    // 既存の除外イベントがあるか確認
+    const existingExcludeEvent = events.find(
+      e => e.eventType === 'スケジュール除外' && isSameDay(e.start, normalizedDate)
+    );
+
+    let newEvents: WorkEvent[];
+    if (existingExcludeEvent) {
+      // 既存の除外を解除（削除）
+      newEvents = events.filter(
+        e => !(e.eventType === 'スケジュール除外' && isSameDay(e.start, normalizedDate))
+      );
+    } else {
+      // 新規除外を追加
+      const newExcludeEvent: WorkEvent = {
+        title: 'スケジュール除外',
+        start: normalizedDate,
+        end: normalizedDate,
+        eventType: 'スケジュール除外'
+      };
+      newEvents = [...events, newExcludeEvent];
+    }
+
+    await saveEvents(newEvents);
   };
 
   // 認証読み込み中
@@ -213,7 +248,11 @@ function App() {
 
         {activeTab === 'calendar' && (
           <div className="tab-content fade-in">
-            <Calendar events={events} scheduledTasks={scheduledTasks} />
+            <Calendar
+              events={events}
+              scheduledTasks={scheduledTasks}
+              onToggleExclude={handleToggleExclude}
+            />
           </div>
         )}
 

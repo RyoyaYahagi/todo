@@ -269,26 +269,69 @@ export function useSupabaseQuery() {
 
     /**
      * タスク更新ミューテーション
+     * タイトル・優先度等の変更をScheduledTaskにも同期
      */
     const updateTaskMutation = useMutation({
         mutationFn: async (task: Task) => {
             await supabaseDb.updateTask(task);
+
+            // 対応するScheduledTaskも更新
+            const currentScheduled = queryClient.getQueryData<ScheduledTask[]>(QUERY_KEYS.scheduledTasks) ?? [];
+            const relatedSchedules = currentScheduled.filter(s => s.taskId === task.id);
+
+            if (relatedSchedules.length > 0) {
+                const updatedSchedules = relatedSchedules.map(s => ({
+                    ...s,
+                    title: task.title,
+                    priority: task.priority,
+                    scheduleType: task.scheduleType,
+                    manualScheduledTime: task.manualScheduledTime,
+                    recurrence: task.recurrence,
+                    // time/recurrence タイプでmanualScheduledTimeが変更された場合、scheduledTimeも更新
+                    scheduledTime: (task.scheduleType === 'time' || task.scheduleType === 'recurrence') && task.manualScheduledTime
+                        ? task.manualScheduledTime
+                        : s.scheduledTime
+                }));
+                await supabaseDb.saveScheduledTasks(updatedSchedules);
+            }
+
             return task;
         },
         onMutate: async (updatedTask) => {
             await queryClient.cancelQueries({ queryKey: QUERY_KEYS.tasks });
-            const previousTasks = queryClient.getQueryData<Task[]>(QUERY_KEYS.tasks);
+            await queryClient.cancelQueries({ queryKey: QUERY_KEYS.scheduledTasks });
 
-            // 楽観的更新
+            const previousTasks = queryClient.getQueryData<Task[]>(QUERY_KEYS.tasks);
+            const previousScheduled = queryClient.getQueryData<ScheduledTask[]>(QUERY_KEYS.scheduledTasks);
+
+            // Taskの楽観的更新
             queryClient.setQueryData<Task[]>(QUERY_KEYS.tasks, (old) =>
                 old?.map(t => t.id === updatedTask.id ? updatedTask : t) ?? []
             );
 
-            return { previousTasks };
+            // ScheduledTaskの楽観的更新（title, priority等を同期）
+            queryClient.setQueryData<ScheduledTask[]>(QUERY_KEYS.scheduledTasks, (old) =>
+                old?.map(s => s.taskId === updatedTask.id ? {
+                    ...s,
+                    title: updatedTask.title,
+                    priority: updatedTask.priority,
+                    scheduleType: updatedTask.scheduleType,
+                    manualScheduledTime: updatedTask.manualScheduledTime,
+                    recurrence: updatedTask.recurrence,
+                    scheduledTime: (updatedTask.scheduleType === 'time' || updatedTask.scheduleType === 'recurrence') && updatedTask.manualScheduledTime
+                        ? updatedTask.manualScheduledTime
+                        : s.scheduledTime
+                } : s) ?? []
+            );
+
+            return { previousTasks, previousScheduled };
         },
         onError: (_err, _variables, context) => {
             if (context?.previousTasks) {
                 queryClient.setQueryData(QUERY_KEYS.tasks, context.previousTasks);
+            }
+            if (context?.previousScheduled) {
+                queryClient.setQueryData(QUERY_KEYS.scheduledTasks, context.previousScheduled);
             }
         },
         onSuccess: () => {
