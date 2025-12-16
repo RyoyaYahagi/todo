@@ -160,9 +160,9 @@ export const Settings: React.FC<SettingsProps> = ({
 
             {/* カレンダー読み込みセクション */}
             <section className="settings-section">
-                <h3>📅 勤務カレンダー読み込み</h3>
+                <h3>📅 予定表の読み込み</h3>
                 <p className="description">
-                    勤務表の .ics ファイルを読み込むと、休日を自動判定してタスクをスケジューリングします。
+                    予定表の .ics ファイルを読み込むと、休日を自動判定してタスクをスケジューリングします。
                 </p>
 
                 <button
@@ -186,9 +186,9 @@ export const Settings: React.FC<SettingsProps> = ({
                         <h4>📝 イベント名の書き方</h4>
                         <p>カレンダーのイベント名は以下のいずれかにしてください：</p>
                         <ul>
-                            <li><strong>夜勤</strong> - 夜間勤務</li>
-                            <li><strong>日勤</strong> - 日中勤務</li>
-                            <li><strong>休み</strong> - 休日</li>
+                            <li><strong>夜勤</strong> - 夜間の予定</li>
+                            <li><strong>日勤</strong> - 日中の予定</li>
+                            <li><strong>休み</strong> - 休日（タスクを予定可能）</li>
                         </ul>
 
                         <h4>🎯 休日の判定ルール</h4>

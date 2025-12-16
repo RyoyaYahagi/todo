@@ -252,10 +252,10 @@ export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, onTo
                             </button>
                         </div>
 
-                        {/* 勤務予定 */}
+                        {/* 予定 */}
                         <section style={{ marginBottom: '1rem' }}>
                             <h4 style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem', borderBottom: '1px solid #eee', paddingBottom: '0.3rem' }}>
-                                📋 勤務予定
+                                📋 予定
                             </h4>
                             {selectedDayDetails.events.length === 0 ? (
                                 <p style={{ color: '#999', fontSize: '0.9rem' }}>予定なし（休日）</p>
@@ -332,7 +332,7 @@ export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, onTo
                                                 ? '✓ 対象（手動設定、タップで解除）'
                                                 : selectedDayDetails.isDayHoliday
                                                     ? '✅ 対象（タップで除外）'
-                                                    : '⚠️ 対象外（勤務日、タップで対象に）'}
+                                                    : '⚠️ 対象外（予定あり、タップで対象に）'}
                                     </div>
                                     {selectedDayDetails.hasCustomSetting && (
                                         <div style={{ fontSize: '0.7rem', color: '#f57c00', marginTop: '0.2rem' }}>

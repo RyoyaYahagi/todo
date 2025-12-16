@@ -16,7 +16,7 @@ export const Tutorial: React.FC<TutorialProps> = ({ isOpen, onClose }) => {
                 <div className="tutorial-step">
                     <div className="emoji-icon">🎉</div>
                     <p>
-                        Holiday Todo は、<strong>不規則な勤務の方（シフト制など）</strong>に特化したタスク管理アプリです。
+                        Holiday Todo は、あなたの<strong>空き時間</strong>を活用するタスク管理アプリです。
                     </p>
                     <p>
                         「休日にやりたいこと」を溜めておけば、次の休日に自動でスケジュールを組んでくれます。
@@ -43,12 +43,12 @@ export const Tutorial: React.FC<TutorialProps> = ({ isOpen, onClose }) => {
             )
         },
         {
-            title: "2. 勤務を登録しよう",
+            title: "2. 予定を登録しよう",
             content: (
                 <div className="tutorial-step">
                     <div className="emoji-icon">📅</div>
                     <p>
-                        <strong>設定 → カレンダー読み込み</strong> から、勤務表（.icsファイル）を読み込みます。
+                        <strong>設定 → 予定表の読み込み</strong> から、カレンダー（.icsファイル）を読み込みます。
                     </p>
                     <p>
                         Googleカレンダーなどからエクスポートしたファイルに対応しています。
@@ -63,7 +63,7 @@ export const Tutorial: React.FC<TutorialProps> = ({ isOpen, onClose }) => {
                 <div className="tutorial-step">
                     <div className="emoji-icon">🤖</div>
                     <p>
-                        タスクと休日データが揃うと、アプリが自動的に「どの休日に何をやるか」を計画します。
+                        タスクと予定データが揃うと、アプリが自動的に「どの休日に何をやるか」を計画します。
                     </p>
                     <p>
                         設定画面で「1日の最大タスク数」や「開始時間」をあなたの生活リズムに合わせて調整できます。
