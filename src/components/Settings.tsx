@@ -1,7 +1,9 @@
 import React, { useState, type ChangeEvent } from 'react';
 import type { AppSettings, WorkEvent } from '../types';
 import { IcsParser } from '../lib/icsParser';
+import { GoogleCalendarClient } from '../lib/googleCalendar';
 import { sendDiscordNotification } from '../lib/discordWebhook';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SettingsProps {
     settings: AppSettings;
@@ -22,6 +24,7 @@ export const Settings: React.FC<SettingsProps> = ({
     onNavigateToCalendar,
     onShowTutorial
 }) => {
+    const { providerToken, signInWithGoogle } = useAuth();
     const [localSettings, setLocalSettings] = useState<AppSettings>(settings);
     const [importStatus, setImportStatus] = useState<string>('');
     const [webhookTestStatus, setWebhookTestStatus] = useState<string>('');
@@ -29,6 +32,66 @@ export const Settings: React.FC<SettingsProps> = ({
     const [showIcsHelp, setShowIcsHelp] = useState(false);
     const [showDiscordHelp, setShowDiscordHelp] = useState(false);
     const [showAdvanced, setShowAdvanced] = useState(false);
+    const [googleSyncStatus, setGoogleSyncStatus] = useState<string>('');
+    const [isGoogleSyncing, setIsGoogleSyncing] = useState(false);
+
+    /**
+     * Googleカレンダーからイベントを同期
+     */
+    const handleGoogleCalendarSync = async () => {
+        if (!providerToken) {
+            // トークンがない場合は再ログインが必要
+            setGoogleSyncStatus('⚠️ カレンダーアクセス権限がありません。再ログインしてください。');
+            setTimeout(async () => {
+                if (window.confirm('Googleカレンダーにアクセスするには再ログインが必要です。続けますか？')) {
+                    await signInWithGoogle();
+                }
+            }, 100);
+            return;
+        }
+
+        setIsGoogleSyncing(true);
+        setGoogleSyncStatus('🔄 Googleカレンダーから取得中...');
+
+        try {
+            const client = new GoogleCalendarClient(providerToken);
+            const events = await client.fetchEvents();
+
+            // イベントタイプ別にカウント
+            const typeCount: Record<string, number> = { '夜勤': 0, '日勤': 0, '休み': 0, 'その他': 0 };
+            events.forEach(ev => {
+                if (typeCount[ev.eventType] !== undefined) {
+                    typeCount[ev.eventType]++;
+                }
+            });
+
+            const summary = Object.entries(typeCount)
+                .filter(([, count]) => count > 0)
+                .map(([type, count]) => `${type}: ${count}件`)
+                .join('、');
+
+            onSaveEvents(events);
+            setGoogleSyncStatus(`✅ ${events.length}件のイベントを取得しました（${summary || '予定なし'}）`);
+
+            // カレンダータブに移動を提案
+            if (onNavigateToCalendar && events.length > 0) {
+                setTimeout(() => {
+                    if (window.confirm('カレンダーで予定を確認しますか？')) {
+                        onNavigateToCalendar();
+                    }
+                }, 500);
+            }
+        } catch (error) {
+            console.error('[Settings] Googleカレンダー同期エラー:', error);
+            if (error instanceof Error && error.message.includes('401')) {
+                setGoogleSyncStatus('⚠️ アクセストークンが無効です。再ログインしてください。');
+            } else {
+                setGoogleSyncStatus('❌ 同期に失敗しました。再度お試しください。');
+            }
+        } finally {
+            setIsGoogleSyncing(false);
+        }
+    };
 
     // settingsプロップが変更されたらローカルステートも更新（外部からの変更を反映）
     React.useEffect(() => {
@@ -199,13 +262,23 @@ export const Settings: React.FC<SettingsProps> = ({
                     </div>
                 )}
 
-                <div className="file-upload-area">
+                <div className="file-upload-area" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
                     <label className="btn-primary file-label">
                         📁 .icsファイルを選択
                         <input type="file" accept=".ics" onChange={handleFileUpload} style={{ display: 'none' }} />
                     </label>
+                    <span style={{ color: '#888', fontSize: '0.9rem' }}>または</span>
+                    <button
+                        className="btn-primary"
+                        onClick={handleGoogleCalendarSync}
+                        disabled={isGoogleSyncing}
+                        style={{ background: '#4285f4' }}
+                    >
+                        {isGoogleSyncing ? '🔄 同期中...' : '📅 Googleカレンダーから同期'}
+                    </button>
                 </div>
                 {importStatus && <p className="status-msg">{importStatus}</p>}
+                {googleSyncStatus && <p className="status-msg">{googleSyncStatus}</p>}
             </section>
 
             {/* Discord通知セクション */}
