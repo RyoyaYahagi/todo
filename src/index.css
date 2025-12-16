@@ -254,9 +254,11 @@ input[type="text"],
 input[type="file"] {
   width: 100%;
   padding: 0.8rem;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   font-size: 1rem;
+  background: var(--input-bg, var(--card-bg));
+  color: var(--text-primary);
 }
 
 /* Task Form Priority */
@@ -270,10 +272,12 @@ input[type="file"] {
   flex: 1;
   padding: 0.8rem 0;
   text-align: center;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all 0.2s;
+  background: var(--card-bg);
+  color: var(--text-primary);
 }
 
 .priority-label.selected {
@@ -376,8 +380,8 @@ input[type="file"] {
 }
 
 .calendar-header button {
-  background: none;
-  border: 1px solid #ddd;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
   border-radius: 50%;
   width: 28px;
   height: 28px;
@@ -531,7 +535,8 @@ input[type="file"] {
 /* Settings */
 .settings-section {
   margin-bottom: 2rem;
-  background: white;
+  background: var(--card-bg);
+  color: var(--text-primary);
   padding: 1.5rem;
   border-radius: var(--radius-lg);
   box-shadow: var(--shawdow-sm);
@@ -693,8 +698,9 @@ input[type="file"] {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 2px solid #ddd;
-  background: white;
+  border: 2px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-primary);
   font-size: 1rem;
   cursor: pointer;
   display: flex;
@@ -767,21 +773,22 @@ input[type="file"] {
 .view-switcher button {
   padding: 0.4rem 0.8rem;
   font-size: 0.9rem;
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
+  color: var(--text-primary);
 }
 
 .view-switcher button:hover {
-  background: #e9ecef;
+  background: var(--border-color);
 }
 
 .view-switcher button.active {
-  background: #4dabf7;
+  background: var(--primary-color);
   color: white;
-  border-color: #339af0;
+  border-color: var(--primary-dark);
   font-weight: bold;
 }
 
@@ -1002,7 +1009,7 @@ input[type="file"] {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 1rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-color);
   padding-bottom: 0.5rem;
 }
 
@@ -1044,19 +1051,22 @@ input[type="file"] {
 .time-input {
   flex: 1;
   padding: 0.8rem;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   font-size: 1rem;
+  background: var(--input-bg, var(--card-bg));
+  color: var(--text-primary);
 }
 
 /* Recurrence Select */
 .recurrence-select {
   width: 100%;
   padding: 0.8rem;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   font-size: 1rem;
-  background: white;
+  background: var(--input-bg, var(--card-bg));
+  color: var(--text-primary);
 }
 
 /* None Description */
@@ -1084,7 +1094,7 @@ input[type="file"] {
 .recurrence-section {
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px dashed #eee;
+  border-top: 1px dashed var(--border-color);
 }
 
 .recurrence-toggle {
