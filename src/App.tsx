@@ -39,6 +39,7 @@ function App() {
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<WorkEvent | null>(null); // 編集中のイベント
+  const [originalEvent, setOriginalEvent] = useState<WorkEvent | null>(null); // 編集前のオリジナルイベント
 
   useEffect(() => {
     const hasSeenTutorial = localStorage.getItem('tutorial_seen');
@@ -256,7 +257,20 @@ function App() {
               scheduledTasks={scheduledTasks}
               onToggleExclude={handleToggleExclude}
               onEditEvent={(event) => {
-                setEditingEvent(event);
+                setEditingEvent({ ...event }); // コピーを作成
+                setOriginalEvent(event); // オリジナルを保持
+                setIsEventModalOpen(true);
+              }}
+              onAddEvent={(date) => {
+                // 選択された日付に新規イベントを作成
+                const newEvent: WorkEvent = {
+                  title: '',
+                  eventType: 'その他',
+                  start: new Date(date.setHours(9, 0, 0, 0)),
+                  end: new Date(date.setHours(18, 0, 0, 0)),
+                };
+                setEditingEvent(newEvent);
+                setOriginalEvent(null); // 新規なのでoriginalEventはnull
                 setIsEventModalOpen(true);
               }}
             />
@@ -325,8 +339,9 @@ function App() {
         onClose={() => {
           setIsEventModalOpen(false);
           setEditingEvent(null);
+          setOriginalEvent(null);
         }}
-        title="予定を編集"
+        title={originalEvent ? "予定を編集" : "新しい予定を追加"}
       >
         {editingEvent && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -345,6 +360,7 @@ function App() {
                   borderRadius: '8px',
                   fontSize: '1rem'
                 }}
+                placeholder="予定名を入力"
               />
             </div>
 
@@ -422,6 +438,7 @@ function App() {
                 onClick={() => {
                   setIsEventModalOpen(false);
                   setEditingEvent(null);
+                  setOriginalEvent(null);
                 }}
                 style={{
                   flex: 1,
@@ -436,16 +453,22 @@ function App() {
               </button>
               <button
                 onClick={async () => {
-                  // 既存のイベントを更新
-                  const updatedEvents = events.map(e =>
-                    e.start.getTime() === editingEvent.start.getTime() &&
-                      e.title === editingEvent.title
-                      ? editingEvent
-                      : e
-                  );
-                  await saveEvents(updatedEvents);
+                  if (originalEvent) {
+                    // 既存のイベントを更新（オリジナルの開始時刻とタイトルで特定）
+                    const updatedEvents = events.map(e =>
+                      e.start.getTime() === originalEvent.start.getTime() &&
+                        e.title === originalEvent.title
+                        ? editingEvent
+                        : e
+                    );
+                    await saveEvents(updatedEvents);
+                  } else {
+                    // 新規イベントを追加
+                    await saveEvents([...events, editingEvent]);
+                  }
                   setIsEventModalOpen(false);
                   setEditingEvent(null);
+                  setOriginalEvent(null);
                 }}
                 style={{
                   flex: 1,
@@ -458,7 +481,7 @@ function App() {
                   fontWeight: 'bold'
                 }}
               >
-                保存
+                {originalEvent ? '保存' : '追加'}
               </button>
             </div>
           </div>

@@ -24,6 +24,8 @@ interface CalendarProps {
     onToggleExclude?: (date: Date) => void;
     /** イベントを編集するコールバック（オプション） */
     onEditEvent?: (event: WorkEvent) => void;
+    /** 新規イベントを追加するコールバック（オプション） */
+    onAddEvent?: (date: Date) => void;
 }
 
 /**
@@ -32,7 +34,7 @@ interface CalendarProps {
  * イベントとスケジュール済みタスクを表示する。
  * 日付セルをタップすると、詳細モーダルが表示される。
  */
-export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, onToggleExclude, onEditEvent }) => {
+export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, onToggleExclude, onEditEvent, onAddEvent }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     // 選択された日付のみを保持（詳細はevents/scheduledTasksから動的に取得）
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -294,6 +296,27 @@ export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, onTo
                                         </li>
                                     ))}
                                 </ul>
+                            )}
+                            {/* 予定追加ボタン */}
+                            {onAddEvent && (
+                                <button
+                                    onClick={() => {
+                                        setSelectedDate(null);
+                                        onAddEvent(selectedDayDetails.date);
+                                    }}
+                                    style={{
+                                        marginTop: '0.5rem',
+                                        padding: '0.5rem 1rem',
+                                        border: '1px dashed #ccc',
+                                        borderRadius: '8px',
+                                        background: 'white',
+                                        cursor: 'pointer',
+                                        width: '100%',
+                                        color: '#666'
+                                    }}
+                                >
+                                    + 予定を追加
+                                </button>
                             )}
                         </section>
 
