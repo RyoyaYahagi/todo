@@ -14,6 +14,8 @@ interface AuthContextType {
     session: Session | null;
     /** 認証状態の読み込み中フラグ */
     loading: boolean;
+    /** Googleのアクセストークン（Calendar API用） */
+    providerToken: string | null;
     /** Googleアカウントでサインイン */
     signInWithGoogle: () => Promise<void>;
     /** サインアウト */
@@ -33,6 +35,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [session, setSession] = useState<Session | null>(null);
+    const [providerToken, setProviderToken] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -40,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session);
             setUser(session?.user ?? null);
+            setProviderToken(session?.provider_token ?? null);
             setLoading(false);
         });
 
@@ -48,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             (_event, session) => {
                 setSession(session);
                 setUser(session?.user ?? null);
+                setProviderToken(session?.provider_token ?? null);
             }
         );
 
@@ -59,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
      * 
      * OAuth認証フローを開始し、Googleのログイン画面にリダイレクトする。
      * 認証成功後、現在開いているURLのオリジンに戻る（動的）。
+     * Google Calendar APIアクセス用のスコープも要求する。
      */
     const signInWithGoogle = async () => {
         const redirectUrl = `${window.location.origin}/auth/callback`;
@@ -68,7 +74,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-            redirectTo: redirectUrl,
+                redirectTo: redirectUrl,
+                scopes: 'https://www.googleapis.com/auth/calendar.readonly',
             },
         });
     };
@@ -83,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ user, session, loading, signInWithGoogle, signOut }}>
+        <AuthContext.Provider value={{ user, session, loading, providerToken, signInWithGoogle, signOut }}>
             {children}
         </AuthContext.Provider>
     );
