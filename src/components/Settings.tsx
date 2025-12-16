@@ -4,6 +4,7 @@ import { IcsParser } from '../lib/icsParser';
 import { GoogleCalendarClient } from '../lib/googleCalendar';
 import { sendDiscordNotification } from '../lib/discordWebhook';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme, type Theme } from '../hooks/useTheme';
 
 interface SettingsProps {
     settings: AppSettings;
@@ -13,6 +14,7 @@ interface SettingsProps {
     onImport: (json: string) => Promise<void>;
     onNavigateToCalendar?: () => void;
     onShowTutorial?: () => void;
+    onShowHelp?: () => void;
 }
 
 export const Settings: React.FC<SettingsProps> = ({
@@ -22,7 +24,8 @@ export const Settings: React.FC<SettingsProps> = ({
     onExport,
     onImport,
     onNavigateToCalendar,
-    onShowTutorial
+    onShowTutorial,
+    onShowHelp
 }) => {
     const { providerToken, signInWithGoogle } = useAuth();
     const [localSettings, setLocalSettings] = useState<AppSettings>(settings);
@@ -34,6 +37,44 @@ export const Settings: React.FC<SettingsProps> = ({
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [googleSyncStatus, setGoogleSyncStatus] = useState<string>('');
     const [isGoogleSyncing, setIsGoogleSyncing] = useState(false);
+
+    // テーマ切り替えコンポーネント
+    const ThemeSelector: React.FC = () => {
+        const { theme, setTheme } = useTheme();
+        const themeOptions: { value: Theme; label: string; icon: string }[] = [
+            { value: 'light', label: 'ライト', icon: '☀️' },
+            { value: 'dark', label: 'ダーク', icon: '🌙' },
+            { value: 'system', label: 'システム', icon: '💻' }
+        ];
+
+        return (
+            <section className="settings-section">
+                <h3>🎨 テーマ設定</h3>
+                <p className="description">
+                    画面の明るさを切り替えます。
+                </p>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {themeOptions.map(opt => (
+                        <button
+                            key={opt.value}
+                            onClick={() => setTheme(opt.value)}
+                            className={theme === opt.value ? 'btn-primary' : 'btn-secondary'}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.3rem',
+                                padding: '0.5rem 0.75rem',
+                                fontSize: '0.9rem'
+                            }}
+                        >
+                            <span>{opt.icon}</span>
+                            <span>{opt.label}</span>
+                        </button>
+                    ))}
+                </div>
+            </section>
+        );
+    };
 
     /**
      * Googleカレンダーからイベントを同期
@@ -208,16 +249,28 @@ export const Settings: React.FC<SettingsProps> = ({
 
     return (
         <div className="settings-container">
+            {/* テーマ設定 */}
+            <ThemeSelector />
+
             {/* チュートリアル・ヘルプ */}
-            {onShowTutorial && (
+            {(onShowTutorial || onShowHelp) && (
                 <section className="settings-section">
                     <h3>📚 ヘルプ & ガイド</h3>
                     <p className="description">
                         アプリの使い方を確認できます。
                     </p>
-                    <button onClick={onShowTutorial} className="btn-secondary">
-                        📖 チュートリアルを表示
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        {onShowTutorial && (
+                            <button onClick={onShowTutorial} className="btn-secondary">
+                                📖 チュートリアル
+                            </button>
+                        )}
+                        {onShowHelp && (
+                            <button onClick={onShowHelp} className="btn-secondary">
+                                ❓ 詳細ヘルプ
+                            </button>
+                        )}
+                    </div>
                 </section>
             )}
 
@@ -343,10 +396,9 @@ export const Settings: React.FC<SettingsProps> = ({
                             value={localSettings.notifyDayBeforeTime}
                             onChange={(e) => setLocalSettings({ ...localSettings, notifyDayBeforeTime: e.target.value })}
                             disabled={!localSettings.notifyOnDayBefore}
-                            className="time-input"
-                            style={{ padding: '4px', borderRadius: '4px', border: '1px solid #ccc' }}
+                            style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ccc', width: '90px' }}
                         />
-                        <span>に通知する</span>
+                        <span>に通知</span>
                     </label>
                 </div>
                 <div className="checkbox-group">
@@ -357,22 +409,27 @@ export const Settings: React.FC<SettingsProps> = ({
                             onChange={(e) => setLocalSettings({ ...localSettings, notifyBeforeTask: e.target.checked })}
                         />
                         <span>タスク開始</span>
-                        <input
-                            type="number"
-                            min="5"
-                            max="120"
+                        <select
                             value={localSettings.notifyBeforeTaskMinutes}
-                            onChange={(e) => setLocalSettings({ ...localSettings, notifyBeforeTaskMinutes: parseInt(e.target.value) || 30 })}
+                            onChange={(e) => setLocalSettings({ ...localSettings, notifyBeforeTaskMinutes: parseInt(e.target.value) })}
                             disabled={!localSettings.notifyBeforeTask}
-                            style={{ width: '60px', padding: '4px', borderRadius: '4px', border: '1px solid #ccc' }}
-                        />
-                        <span>分前に通知する</span>
+                            style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                        >
+                            <option value={0}>0分前（開始時）</option>
+                            <option value={5}>5分前</option>
+                            <option value={10}>10分前</option>
+                            <option value={15}>15分前</option>
+                            <option value={30}>30分前</option>
+                            <option value={45}>45分前</option>
+                            <option value={60}>60分前</option>
+                        </select>
+                        <span>に通知</span>
                     </label>
                 </div>
 
                 <div className="action-buttons" style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                     <div style={{ display: 'flex', gap: '1rem' }}>
-                        <button onClick={handleReset} className="btn-secondary" style={{ backgroundColor: '#f5f5f5', padding: '0.5rem 1rem' }}>
+                        <button onClick={handleReset} className="btn-secondary" style={{ padding: '0.5rem 1rem' }}>
                             ↩️ 元に戻す
                         </button>
                         <button onClick={handleSave} className="btn-primary" style={{ padding: '0.5rem 1.5rem', width: 'auto' }}>
@@ -391,15 +448,21 @@ export const Settings: React.FC<SettingsProps> = ({
                 </p>
 
                 <div className="form-group">
-                    <label>タスクの時間間隔（時間）</label>
+                    <label>タスクの時間間隔</label>
                     <select
                         value={localSettings.scheduleInterval}
-                        onChange={(e) => setLocalSettings({ ...localSettings, scheduleInterval: parseInt(e.target.value) })}
+                        onChange={(e) => setLocalSettings({ ...localSettings, scheduleInterval: parseFloat(e.target.value) })}
                         style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', marginLeft: '10px' }}
                     >
-                        {[1, 2, 3, 4, 5, 6].map(h => (
-                            <option key={h} value={h}>{h}時間</option>
-                        ))}
+                        <option value={0.5}>30分</option>
+                        <option value={1}>1時間</option>
+                        <option value={1.5}>1時間半</option>
+                        <option value={2}>2時間</option>
+                        <option value={2.5}>2時間半</option>
+                        <option value={3}>3時間</option>
+                        <option value={4}>4時間</option>
+                        <option value={5}>5時間</option>
+                        <option value={6}>6時間</option>
                     </select>
                 </div>
 
@@ -462,7 +525,7 @@ export const Settings: React.FC<SettingsProps> = ({
 
                 <div className="action-buttons" style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
                     <div style={{ display: 'flex', gap: '1rem' }}>
-                        <button onClick={handleReset} className="btn-secondary" style={{ backgroundColor: '#f5f5f5' }}>
+                        <button onClick={handleReset} className="btn-secondary">
                             ↩️ 元に戻す
                         </button>
                         <button onClick={handleSave} className="btn-primary" style={{ padding: '0.8rem 2rem', fontSize: '1.1rem', width: 'auto' }}>

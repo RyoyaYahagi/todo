@@ -7,8 +7,19 @@
     padding: 1rem;
 }
 
+/* ダークモード時のグラデーション */
+[data-theme="dark"] .login-container {
+    background: linear-gradient(135deg, #1a1a2e 0%, #2d2d44 100%);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .login-container {
+        background: linear-gradient(135deg, #1a1a2e 0%, #2d2d44 100%);
+    }
+}
+
 .login-card {
-    background: rgba(255, 255, 255, 0.95);
+    background: var(--card-bg, rgba(255, 255, 255, 0.95));
     backdrop-filter: blur(10px);
     border-radius: 24px;
     padding: 3rem 2.5rem;
@@ -20,12 +31,12 @@
 
 .login-header h1 {
     font-size: 2rem;
-    color: #1a1a2e;
+    color: var(--text-primary, #1a1a2e);
     margin: 0 0 0.5rem 0;
 }
 
 .login-subtitle {
-    color: #666;
+    color: var(--text-secondary, #666);
     margin: 0 0 2rem 0;
     font-size: 1rem;
 }
@@ -43,7 +54,7 @@
     align-items: center;
     gap: 0.5rem;
     font-size: 0.85rem;
-    color: #555;
+    color: var(--text-secondary, #555);
 }
 
 .feature-icon {
@@ -57,10 +68,10 @@
     gap: 0.75rem;
     width: 100%;
     padding: 0.875rem 1.5rem;
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--border-color, #e0e0e0);
     border-radius: 12px;
-    background: white;
-    color: #333;
+    background: var(--bg-secondary, white);
+    color: var(--text-primary, #333);
     font-size: 1rem;
     font-weight: 500;
     cursor: pointer;
@@ -69,7 +80,7 @@
 
 .google-login-btn:hover {
     border-color: #4285F4;
-    background: #f8f9fa;
+    background: var(--card-bg, #f8f9fa);
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
 }
@@ -85,14 +96,14 @@
 .login-note {
     margin-top: 1.5rem;
     font-size: 0.8rem;
-    color: #888;
+    color: var(--text-muted, #888);
     line-height: 1.5;
 }
 
 .loading-spinner {
     width: 40px;
     height: 40px;
-    border: 4px solid #e0e0e0;
+    border: 4px solid var(--border-color, #e0e0e0);
     border-top-color: #667eea;
     border-radius: 50%;
     animation: spin 1s linear infinite;
