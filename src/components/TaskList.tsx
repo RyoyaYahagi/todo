@@ -12,10 +12,11 @@ interface TaskListProps {
     onComplete: (id: string, isScheduled: boolean) => void;
     onUpdatePriority: (id: string, priority: Priority) => void;
     onEdit?: (id: string) => void;
+    onDeleteCompleted?: () => void;
     maxPriority?: number;
 }
 
-export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDelete, onComplete, onUpdatePriority, onEdit, maxPriority = 5 }) => {
+export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDelete, onComplete, onUpdatePriority, onEdit, onDeleteCompleted, maxPriority = 5 }) => {
     // 完了タスク折りたたみ状態
     const [isCompletedExpanded, setIsCompletedExpanded] = useState(false);
 
@@ -219,9 +220,33 @@ export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDel
                     </button>
 
                     {isCompletedExpanded && (
-                        <ul className="task-list-clean" style={{ marginTop: '0.5rem', opacity: 0.7 }}>
-                            {sortedCompleted.map(t => renderItem(t, true))}
-                        </ul>
+                        <>
+                            <ul className="task-list-clean" style={{ marginTop: '0.5rem', opacity: 0.7 }}>
+                                {sortedCompleted.map(t => renderItem(t, true))}
+                            </ul>
+                            {onDeleteCompleted && (
+                                <button
+                                    onClick={() => {
+                                        if (window.confirm(`完了済みタスク${sortedCompleted.length}件をすべて削除しますか？`)) {
+                                            onDeleteCompleted();
+                                        }
+                                    }}
+                                    style={{
+                                        marginTop: '0.5rem',
+                                        padding: '0.6rem 1rem',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        background: '#ff3b30',
+                                        color: 'white',
+                                        cursor: 'pointer',
+                                        width: '100%',
+                                        fontSize: '0.9rem'
+                                    }}
+                                >
+                                    🗑️ 完了済みをすべて削除
+                                </button>
+                            )}
+                        </>
                     )}
                 </div>
             )}
