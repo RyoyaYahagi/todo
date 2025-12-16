@@ -10,7 +10,7 @@ import { Login } from './components/Login';
 
 import { Modal } from './components/Modal';
 import { Tutorial } from './components/Tutorial';
-import type { Task, WorkEvent } from './types';
+import type { Task, WorkEvent, EventType } from './types';
 import { getNextOccurrence } from './lib/scheduler';
 import { isSameDay, startOfDay } from 'date-fns';
 
@@ -37,6 +37,8 @@ function App() {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null); // 編集中のタスク
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<WorkEvent | null>(null); // 編集中のイベント
 
   useEffect(() => {
     const hasSeenTutorial = localStorage.getItem('tutorial_seen');
@@ -243,45 +245,6 @@ function App() {
               onEdit={handleEditTask}
               maxPriority={settings.maxPriority}
             />
-
-            {/* FAB for adding tasks */}
-            <div className="fab-container">
-              <button className="fab-button" onClick={() => setIsTaskModalOpen(true)}>
-                <span>+</span>
-              </button>
-            </div>
-
-            {/* Task Add/Edit Modal */}
-            <Modal
-              isOpen={isTaskModalOpen}
-              onClose={closeTaskModal}
-              title={editingTask ? "タスクを編集" : "新規タスク追加"}
-            >
-              <TaskForm
-                initialData={editingTask || undefined}
-                buttonLabel={editingTask ? "保存" : "追加"}
-                onSave={async (title, scheduleType, options) => {
-                  if (editingTask) {
-                    // 更新
-                    const updatedTask: Task = {
-                      ...editingTask,
-                      title,
-                      scheduleType,
-                      priority: options?.priority,
-                      manualScheduledTime: options?.manualScheduledTime,
-                      recurrence: options?.recurrence
-                    };
-                    await updateTask(updatedTask);
-                  } else {
-                    // 新規追加
-                    await addTask(title, scheduleType, options);
-                  }
-                  closeTaskModal();
-                }}
-                onCancel={closeTaskModal}
-                maxPriority={settings.maxPriority}
-              />
-            </Modal>
           </div>
         )}
 
@@ -292,6 +255,10 @@ function App() {
               events={events}
               scheduledTasks={scheduledTasks}
               onToggleExclude={handleToggleExclude}
+              onEditEvent={(event) => {
+                setEditingEvent(event);
+                setIsEventModalOpen(true);
+              }}
             />
           </div>
         )}
@@ -310,6 +277,193 @@ function App() {
           </div>
         )}
       </main>
+
+      {/* FAB for adding tasks - タブ外に配置して再マウントを防止 */}
+      {activeTab === 'tasks' && (
+        <div className="fab-container">
+          <button className="fab-button" onClick={() => setIsTaskModalOpen(true)}>
+            <span>+</span>
+          </button>
+        </div>
+      )}
+
+      {/* Task Add/Edit Modal - タブ外に配置 */}
+      <Modal
+        isOpen={isTaskModalOpen}
+        onClose={closeTaskModal}
+        title={editingTask ? "タスクを編集" : "新規タスク追加"}
+      >
+        <TaskForm
+          initialData={editingTask || undefined}
+          buttonLabel={editingTask ? "保存" : "追加"}
+          onSave={async (title, scheduleType, options) => {
+            if (editingTask) {
+              // 更新
+              const updatedTask: Task = {
+                ...editingTask,
+                title,
+                scheduleType,
+                priority: options?.priority,
+                manualScheduledTime: options?.manualScheduledTime,
+                recurrence: options?.recurrence
+              };
+              await updateTask(updatedTask);
+            } else {
+              // 新規追加
+              await addTask(title, scheduleType, options);
+            }
+            closeTaskModal();
+          }}
+          onCancel={closeTaskModal}
+          maxPriority={settings.maxPriority}
+        />
+      </Modal>
+
+      {/* Event Edit Modal */}
+      <Modal
+        isOpen={isEventModalOpen}
+        onClose={() => {
+          setIsEventModalOpen(false);
+          setEditingEvent(null);
+        }}
+        title="予定を編集"
+      >
+        {editingEvent && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                タイトル
+              </label>
+              <input
+                type="text"
+                value={editingEvent.title}
+                onChange={(e) => setEditingEvent({ ...editingEvent, title: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '0.8rem',
+                  border: '1px solid #ddd',
+                  borderRadius: '8px',
+                  fontSize: '1rem'
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                種類
+              </label>
+              <select
+                value={editingEvent.eventType}
+                onChange={(e) => setEditingEvent({ ...editingEvent, eventType: e.target.value as EventType })}
+                style={{
+                  width: '100%',
+                  padding: '0.8rem',
+                  border: '1px solid #ddd',
+                  borderRadius: '8px',
+                  fontSize: '1rem'
+                }}
+              >
+                <option value="夜勤">夜勤</option>
+                <option value="日勤">日勤</option>
+                <option value="休み">休み</option>
+                <option value="その他">その他</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                  開始時刻
+                </label>
+                <input
+                  type="time"
+                  value={`${String(editingEvent.start.getHours()).padStart(2, '0')}:${String(editingEvent.start.getMinutes()).padStart(2, '0')}`}
+                  onChange={(e) => {
+                    const [h, m] = e.target.value.split(':').map(Number);
+                    const newStart = new Date(editingEvent.start);
+                    newStart.setHours(h, m);
+                    setEditingEvent({ ...editingEvent, start: newStart });
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '0.8rem',
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    fontSize: '1rem'
+                  }}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                  終了時刻
+                </label>
+                <input
+                  type="time"
+                  value={`${String(editingEvent.end.getHours()).padStart(2, '0')}:${String(editingEvent.end.getMinutes()).padStart(2, '0')}`}
+                  onChange={(e) => {
+                    const [h, m] = e.target.value.split(':').map(Number);
+                    const newEnd = new Date(editingEvent.end);
+                    newEnd.setHours(h, m);
+                    setEditingEvent({ ...editingEvent, end: newEnd });
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '0.8rem',
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    fontSize: '1rem'
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+              <button
+                onClick={() => {
+                  setIsEventModalOpen(false);
+                  setEditingEvent(null);
+                }}
+                style={{
+                  flex: 1,
+                  padding: '0.8rem',
+                  border: '1px solid #ddd',
+                  borderRadius: '8px',
+                  background: 'white',
+                  cursor: 'pointer'
+                }}
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={async () => {
+                  // 既存のイベントを更新
+                  const updatedEvents = events.map(e =>
+                    e.start.getTime() === editingEvent.start.getTime() &&
+                      e.title === editingEvent.title
+                      ? editingEvent
+                      : e
+                  );
+                  await saveEvents(updatedEvents);
+                  setIsEventModalOpen(false);
+                  setEditingEvent(null);
+                }}
+                style={{
+                  flex: 1,
+                  padding: '0.8rem',
+                  border: 'none',
+                  borderRadius: '8px',
+                  background: '#007aff',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Tutorial Modal */}
       <Tutorial isOpen={isTutorialOpen} onClose={closeTutorial} />
