@@ -37,6 +37,7 @@ function App() {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null); // 編集中のタスク
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false); // ヘルプモード
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<WorkEvent | null>(null); // 編集中のイベント
   const [originalEvent, setOriginalEvent] = useState<WorkEvent | null>(null); // 編集前のオリジナルイベント
@@ -296,6 +297,7 @@ function App() {
               onImport={importData}
               onNavigateToCalendar={() => setActiveTab('calendar')}
               onShowTutorial={() => setIsTutorialOpen(true)}
+              onShowHelp={() => setIsHelpOpen(true)}
             />
           </div>
         )}
@@ -530,6 +532,9 @@ function App() {
 
       {/* Tutorial Modal */}
       <Tutorial isOpen={isTutorialOpen} onClose={closeTutorial} />
+
+      {/* Help Modal */}
+      <Tutorial isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} showHelpOnly />
 
       <nav className="bottom-nav">
         <button

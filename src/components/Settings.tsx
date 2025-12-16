@@ -13,6 +13,7 @@ interface SettingsProps {
     onImport: (json: string) => Promise<void>;
     onNavigateToCalendar?: () => void;
     onShowTutorial?: () => void;
+    onShowHelp?: () => void;
 }
 
 export const Settings: React.FC<SettingsProps> = ({
@@ -22,7 +23,8 @@ export const Settings: React.FC<SettingsProps> = ({
     onExport,
     onImport,
     onNavigateToCalendar,
-    onShowTutorial
+    onShowTutorial,
+    onShowHelp
 }) => {
     const { providerToken, signInWithGoogle } = useAuth();
     const [localSettings, setLocalSettings] = useState<AppSettings>(settings);
@@ -209,15 +211,24 @@ export const Settings: React.FC<SettingsProps> = ({
     return (
         <div className="settings-container">
             {/* チュートリアル・ヘルプ */}
-            {onShowTutorial && (
+            {(onShowTutorial || onShowHelp) && (
                 <section className="settings-section">
                     <h3>📚 ヘルプ & ガイド</h3>
                     <p className="description">
                         アプリの使い方を確認できます。
                     </p>
-                    <button onClick={onShowTutorial} className="btn-secondary">
-                        📖 チュートリアルを表示
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        {onShowTutorial && (
+                            <button onClick={onShowTutorial} className="btn-secondary">
+                                📖 チュートリアル
+                            </button>
+                        )}
+                        {onShowHelp && (
+                            <button onClick={onShowHelp} className="btn-secondary">
+                                ❓ 詳細ヘルプ
+                            </button>
+                        )}
+                    </div>
                 </section>
             )}
 

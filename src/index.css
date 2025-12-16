@@ -4,10 +4,13 @@
   --secondary-color: #f5f7fa;
   --text-primary: #333333;
   --text-secondary: #666666;
+  --text-muted: #999999;
   --danger-color: #e74c3c;
   --success-color: #2ecc71;
   --bg-color: #ffffff;
+  --bg-secondary: #f8f9fa;
   --card-bg: #ffffff;
+  --border-color: #e0e0e0;
   --shawdow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
   --radius-md: 12px;
@@ -24,6 +27,26 @@
   --work-yasumi: #e74c3c;
 
   --safe-area-bottom: env(safe-area-inset-bottom);
+}
+
+/* ダークモード対応 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary-color: #5c9ce6;
+    --primary-dark: #4a90e2;
+    --secondary-color: #1a1a2e;
+    --text-primary: #e8e8e8;
+    --text-secondary: #b0b0b0;
+    --text-muted: #707070;
+    --danger-color: #ff6b6b;
+    --success-color: #4ade80;
+    --bg-color: #0f0f1a;
+    --bg-secondary: #1a1a2e;
+    --card-bg: #1e1e32;
+    --border-color: #2a2a40;
+    --shawdow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  }
 }
 
 * {
@@ -57,9 +80,9 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--card-bg);
   backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid var(--border-color);
   z-index: 10;
 }
 
@@ -87,7 +110,7 @@ body {
 
 .logout-btn {
   background: none;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 0.35rem 0.75rem;
   font-size: 0.75rem;
@@ -118,9 +141,9 @@ body {
   max-width: 600px;
   margin: 0 auto;
   height: calc(3.5rem + var(--safe-area-bottom));
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--card-bg);
   backdrop-filter: blur(10px);
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  border-top: 1px solid var(--border-color);
   display: flex;
   justify-content: space-around;
   padding-bottom: var(--safe-area-bottom);
@@ -173,7 +196,7 @@ body {
   flex-direction: column;
   align-items: center;
   padding: 1rem;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 8px;
   margin-top: 1.5rem;
 }
@@ -811,12 +834,13 @@ input[type="file"] {
 }
 
 .modal-content {
-  background: white;
+  background: var(--card-bg);
+  color: var(--text-primary);
   width: 100%;
   max-width: 500px;
   padding: 1.5rem;
   border-radius: var(--radius-lg);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   animation: slideUp 0.3s ease-out;
   margin-bottom: env(safe-area-inset-bottom);
 }
@@ -849,7 +873,7 @@ input[type="file"] {
   background: none;
   border: none;
   font-size: 1.5rem;
-  color: #999;
+  color: var(--text-muted);
   cursor: pointer;
   padding: 0.5rem;
 }
@@ -859,16 +883,15 @@ input[type="file"] {
   list-style: none;
   padding: 0;
   margin: 0;
-  background: white;
-  /* Card-like container or just clean list? */
+  background: var(--card-bg);
 }
 
 .task-item-clean {
   display: flex;
   align-items: flex-start;
   padding: 1rem;
-  border-bottom: 1px solid #f0f0f0;
-  background: white;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--card-bg);
   transition: background 0.2s;
 }
 
@@ -880,7 +903,7 @@ input[type="file"] {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  border: 2px solid #ddd;
+  border: 2px solid var(--border-color);
   margin-right: 12px;
   margin-top: 2px;
   cursor: pointer;

@@ -4,12 +4,69 @@ import { Modal } from './Modal';
 interface TutorialProps {
     isOpen: boolean;
     onClose: () => void;
+    showHelpOnly?: boolean; // ヘルプのみ表示モード
 }
 
-export const Tutorial: React.FC<TutorialProps> = ({ isOpen, onClose }) => {
-    const [step, setStep] = useState(0);
+/**
+ * サンプルタスクカード（デモ用）
+ */
+const SampleTaskCard: React.FC<{ title: string; priority: number; time?: string }> = ({ title, priority, time }) => (
+    <div style={{
+        background: 'var(--bg-secondary)',
+        borderRadius: '8px',
+        padding: '0.75rem 1rem',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.75rem',
+        marginBottom: '0.5rem',
+        border: '1px solid var(--border-color)'
+    }}>
+        <div style={{
+            width: '20px',
+            height: '20px',
+            borderRadius: '50%',
+            border: '2px solid var(--border-color)'
+        }} />
+        <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{title}</div>
+            {time && <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{time}</div>}
+        </div>
+        <span style={{
+            background: priority >= 4 ? '#e74c3c' : priority >= 3 ? '#2ecc71' : '#3498db',
+            color: 'white',
+            padding: '2px 8px',
+            borderRadius: '12px',
+            fontSize: '0.75rem',
+            fontWeight: 'bold'
+        }}>P{priority}</span>
+    </div>
+);
 
-    const steps = [
+/**
+ * サンプルカレンダー日（デモ用）
+ */
+const SampleCalendarDay: React.FC<{ day: number; type?: '夜勤' | '日勤' | '休み' | null }> = ({ day, type }) => {
+    const bgColor = type === '夜勤' ? '#8e44ad' : type === '日勤' ? '#3498db' : type === '休み' ? '#27ae60' : 'var(--bg-secondary)';
+    return (
+        <div style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '8px',
+            background: bgColor,
+            color: type ? 'white' : 'var(--text-primary)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '0.85rem',
+            fontWeight: type ? 'bold' : 'normal'
+        }}>{day}</div>
+    );
+};
+
+export const Tutorial: React.FC<TutorialProps> = ({ isOpen, onClose, showHelpOnly = false }) => {
+    const [step, setStep] = useState(showHelpOnly ? -1 : 0);
+
+    const tutorialSteps = [
         {
             title: "ようこそ！ Holiday Todo へ",
             content: (
@@ -18,9 +75,17 @@ export const Tutorial: React.FC<TutorialProps> = ({ isOpen, onClose }) => {
                     <p>
                         Holiday Todo は、あなたの<strong>空き時間</strong>を活用するタスク管理アプリです。
                     </p>
-                    <p>
-                        「休日にやりたいこと」を溜めておけば、次の休日に自動でスケジュールを組んでくれます。
-                    </p>
+                    <div style={{
+                        background: 'var(--bg-secondary)',
+                        borderRadius: '12px',
+                        padding: '1rem',
+                        marginTop: '1rem',
+                        border: '1px solid var(--border-color)'
+                    }}>
+                        <p style={{ margin: 0, fontSize: '0.9rem', lineHeight: 1.6 }}>
+                            💡 「休日にやりたいこと」を溜めておけば、次の休日に自動でスケジュールを組んでくれます。
+                        </p>
+                    </div>
                 </div>
             )
         },
@@ -28,13 +93,22 @@ export const Tutorial: React.FC<TutorialProps> = ({ isOpen, onClose }) => {
             title: "1. タスクを追加しよう",
             content: (
                 <div className="tutorial-step">
-                    <div className="emoji-icon">📝</div>
-                    <p>
-                        右下の <strong>＋ボタン</strong> からタスクを追加します。
+                    <p style={{ marginBottom: '1rem' }}>
+                        右下の <strong style={{ background: 'var(--primary-color)', color: 'white', padding: '2px 8px', borderRadius: '50%' }}>＋</strong> ボタンからタスクを追加します。
                     </p>
-                    <p>
-                        優先度（P1〜P5）を設定すると、重要なタスクから順にスケジュールされます。
-                    </p>
+                    <div style={{
+                        background: 'var(--bg-secondary)',
+                        borderRadius: '12px',
+                        padding: '1rem',
+                        border: '1px solid var(--border-color)'
+                    }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.75rem', color: 'var(--text-secondary)' }}>
+                            📝 サンプルタスク
+                        </div>
+                        <SampleTaskCard title="部屋の掃除" priority={5} />
+                        <SampleTaskCard title="読書（1時間）" priority={3} />
+                        <SampleTaskCard title="映画を観る" priority={1} />
+                    </div>
                     <ul className="tutorial-list">
                         <li><strong>P5 (高)</strong>: 絶対にやりたい！</li>
                         <li><strong>P1 (低)</strong>: 時間があったらでOK</li>
@@ -46,13 +120,32 @@ export const Tutorial: React.FC<TutorialProps> = ({ isOpen, onClose }) => {
             title: "2. 予定を登録しよう",
             content: (
                 <div className="tutorial-step">
-                    <div className="emoji-icon">📅</div>
                     <p>
-                        <strong>設定 → 予定表の読み込み</strong> から、カレンダー（.icsファイル）を読み込みます。
+                        <strong>設定 → カレンダー読み込み</strong>から、予定を登録します。
                     </p>
-                    <p>
-                        Googleカレンダーなどからエクスポートしたファイルに対応しています。
-                        「休み」または「イベントがない日」が休日として判定されます。
+                    <div style={{
+                        background: 'var(--bg-secondary)',
+                        borderRadius: '12px',
+                        padding: '1rem',
+                        marginTop: '1rem',
+                        border: '1px solid var(--border-color)'
+                    }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.75rem', color: 'var(--text-secondary)' }}>
+                            📅 サンプルカレンダー
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                            <SampleCalendarDay day={15} type="日勤" />
+                            <SampleCalendarDay day={16} type="夜勤" />
+                            <SampleCalendarDay day={17} type="休み" />
+                            <SampleCalendarDay day={18} type="休み" />
+                            <SampleCalendarDay day={19} type="日勤" />
+                        </div>
+                        <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
+                            🟢 休み　🔵 日勤　🟣 夜勤
+                        </div>
+                    </div>
+                    <p style={{ marginTop: '1rem', fontSize: '0.9rem' }}>
+                        📱 Googleカレンダー連携 または 📁 ICSファイル読み込みに対応
                     </p>
                 </div>
             )
@@ -63,10 +156,23 @@ export const Tutorial: React.FC<TutorialProps> = ({ isOpen, onClose }) => {
                 <div className="tutorial-step">
                     <div className="emoji-icon">🤖</div>
                     <p>
-                        タスクと予定データが揃うと、アプリが自動的に「どの休日に何をやるか」を計画します。
+                        タスクと予定が揃うと、アプリが自動で「どの休日に何をやるか」を計画します。
                     </p>
-                    <p>
-                        設定画面で「1日の最大タスク数」や「開始時間」をあなたの生活リズムに合わせて調整できます。
+                    <div style={{
+                        background: 'var(--bg-secondary)',
+                        borderRadius: '12px',
+                        padding: '1rem',
+                        marginTop: '1rem',
+                        border: '1px solid var(--border-color)'
+                    }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.75rem', color: 'var(--text-secondary)' }}>
+                            📋 17日（休み）のスケジュール
+                        </div>
+                        <SampleTaskCard title="部屋の掃除" priority={5} time="08:00" />
+                        <SampleTaskCard title="読書（1時間）" priority={3} time="10:00" />
+                    </div>
+                    <p style={{ marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                        ⚙️ 設定で「開始時間」や「タスク間隔」を調整可能
                     </p>
                 </div>
             )
@@ -76,24 +182,91 @@ export const Tutorial: React.FC<TutorialProps> = ({ isOpen, onClose }) => {
             content: (
                 <div className="tutorial-step">
                     <div className="emoji-icon">🚀</div>
-                    <p>
-                        さあ、まずはタスクを追加してみましょう！
-                    </p>
-                    <p>
-                        このチュートリアルは、設定画面からいつでも見返すことができます。
+                    <p>さあ、まずはタスクを追加してみましょう！</p>
+                    <div style={{
+                        background: 'linear-gradient(135deg, var(--primary-color), var(--primary-dark))',
+                        color: 'white',
+                        borderRadius: '12px',
+                        padding: '1rem',
+                        marginTop: '1rem',
+                        textAlign: 'center'
+                    }}>
+                        <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>📝 → 📅 → ✅</div>
+                        <div style={{ fontSize: '0.85rem' }}>タスク追加 → 自動スケジュール → 完了！</div>
+                    </div>
+                    <p style={{ marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                        このチュートリアルは、設定画面からいつでも見返せます。
                     </p>
                 </div>
             )
         }
     ];
 
+    // ヘルプコンテンツ
+    const helpContent = (
+        <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+            <section style={{ marginBottom: '1.5rem' }}>
+                <h4 style={{ color: 'var(--primary-color)', marginBottom: '0.5rem' }}>📝 タスク管理</h4>
+                <ul style={{ paddingLeft: '1.25rem', fontSize: '0.9rem', lineHeight: 1.8 }}>
+                    <li><strong>優先度 (P1〜P5)</strong>: 高いほど優先的にスケジュール</li>
+                    <li><strong>スケジュールタイプ</strong>:
+                        <ul style={{ marginTop: '0.25rem' }}>
+                            <li>🔄 自動: 空いている休日に自動配置</li>
+                            <li>🕐 時間指定: 特定の日時に固定</li>
+                            <li>🔁 繰り返し: 定期的に繰り返す</li>
+                        </ul>
+                    </li>
+                    <li><strong>完了済みタスク</strong>: 折りたたみ表示、一括削除可能</li>
+                </ul>
+            </section>
+
+            <section style={{ marginBottom: '1.5rem' }}>
+                <h4 style={{ color: 'var(--primary-color)', marginBottom: '0.5rem' }}>📅 カレンダー</h4>
+                <ul style={{ paddingLeft: '1.25rem', fontSize: '0.9rem', lineHeight: 1.8 }}>
+                    <li><strong>予定の種類</strong>: 夜勤🟣・日勤🔵・休み🟢・その他⚪</li>
+                    <li><strong>休日判定</strong>: イベントなし or「休み」タイプの日</li>
+                    <li><strong>Googleカレンダー連携</strong>: 設定からワンタップで同期</li>
+                    <li><strong>ICS読み込み</strong>: カレンダーアプリからエクスポートしたファイル</li>
+                    <li><strong>予定の編集</strong>: 日付タップ → 予定タップで編集/削除</li>
+                </ul>
+            </section>
+
+            <section style={{ marginBottom: '1.5rem' }}>
+                <h4 style={{ color: 'var(--primary-color)', marginBottom: '0.5rem' }}>⏰ スケジュール設定</h4>
+                <ul style={{ paddingLeft: '1.25rem', fontSize: '0.9rem', lineHeight: 1.8 }}>
+                    <li><strong>午前の開始時間</strong>: 休日のタスク開始時刻</li>
+                    <li><strong>午後の開始時間</strong>: 夜勤明けなど午後スタート時</li>
+                    <li><strong>タスク間隔</strong>: タスク間の時間（30分〜6時間）</li>
+                    <li><strong>1日の最大タスク数</strong>: 1日にスケジュールする上限</li>
+                    <li><strong>「休み」「その他」イベント</strong>: その時間帯は自動スケジュールから除外</li>
+                </ul>
+            </section>
+
+            <section style={{ marginBottom: '1.5rem' }}>
+                <h4 style={{ color: 'var(--primary-color)', marginBottom: '0.5rem' }}>🔔 Discord通知</h4>
+                <ul style={{ paddingLeft: '1.25rem', fontSize: '0.9rem', lineHeight: 1.8 }}>
+                    <li><strong>前日通知</strong>: 指定時刻に翌日のスケジュールを送信</li>
+                    <li><strong>タスク開始通知</strong>: タスク開始0〜60分前に通知</li>
+                    <li><strong>Webhook URL</strong>: Discordサーバーで作成したURLを設定</li>
+                </ul>
+            </section>
+
+            <section>
+                <h4 style={{ color: 'var(--primary-color)', marginBottom: '0.5rem' }}>💾 データ管理</h4>
+                <ul style={{ paddingLeft: '1.25rem', fontSize: '0.9rem', lineHeight: 1.8 }}>
+                    <li><strong>クラウド同期</strong>: ログインするとデータは自動保存</li>
+                    <li><strong>エクスポート/インポート</strong>: JSONファイルでバックアップ可能</li>
+                </ul>
+            </section>
+        </div>
+    );
+
     const handleNext = () => {
-        if (step < steps.length - 1) {
+        if (step < tutorialSteps.length - 1) {
             setStep(step + 1);
         } else {
             onClose();
-            // 少し待ってからステップをリセット（次回開いたときのため）
-            setTimeout(() => setStep(0), 300);
+            setTimeout(() => setStep(showHelpOnly ? -1 : 0), 300);
         }
     };
 
@@ -103,17 +276,40 @@ export const Tutorial: React.FC<TutorialProps> = ({ isOpen, onClose }) => {
         }
     };
 
+    // ヘルプモードの場合
+    if (showHelpOnly || step === -1) {
+        return (
+            <Modal isOpen={isOpen} onClose={onClose} title="📖 ヘルプ & ガイド">
+                {helpContent}
+                <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+                    <button
+                        className="btn-secondary"
+                        onClick={() => setStep(0)}
+                        style={{ marginRight: '0.5rem' }}
+                    >
+                        チュートリアルを見る
+                    </button>
+                    <button className="btn-primary" onClick={onClose}>
+                        閉じる
+                    </button>
+                </div>
+            </Modal>
+        );
+    }
+
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={steps[step].title}>
+        <Modal isOpen={isOpen} onClose={onClose} title={tutorialSteps[step].title}>
             <div className="tutorial-content">
-                {steps[step].content}
+                {tutorialSteps[step].content}
             </div>
             <div className="tutorial-footer">
                 <div className="step-indicators">
-                    {steps.map((_, i) => (
+                    {tutorialSteps.map((_, i) => (
                         <span
                             key={i}
                             className={`indicator ${i === step ? 'active' : ''}`}
+                            onClick={() => setStep(i)}
+                            style={{ cursor: 'pointer' }}
                         />
                     ))}
                 </div>
@@ -124,7 +320,7 @@ export const Tutorial: React.FC<TutorialProps> = ({ isOpen, onClose }) => {
                         </button>
                     )}
                     <button className="btn-primary" onClick={handleNext}>
-                        {step === steps.length - 1 ? '始める' : '次へ'}
+                        {step === tutorialSteps.length - 1 ? '始める' : '次へ'}
                     </button>
                 </div>
             </div>
@@ -132,22 +328,27 @@ export const Tutorial: React.FC<TutorialProps> = ({ isOpen, onClose }) => {
             <style>{`
                 .tutorial-step {
                     text-align: center;
-                    padding: 1rem 0;
+                    padding: 0.5rem 0;
                 }
                 .emoji-icon {
-                    font-size: 4rem;
-                    margin-bottom: 1rem;
+                    font-size: 3.5rem;
+                    margin-bottom: 0.75rem;
                     animation: bounce 2s infinite;
                 }
                 .tutorial-list {
                     text-align: left;
-                    background: #f8f9fa;
-                    padding: 1rem 2rem;
+                    background: var(--bg-secondary);
+                    padding: 0.75rem 1.5rem;
                     border-radius: 8px;
                     margin-top: 1rem;
+                    border: 1px solid var(--border-color);
+                }
+                .tutorial-list li {
+                    margin: 0.25rem 0;
+                    font-size: 0.9rem;
                 }
                 .tutorial-footer {
-                    margin-top: 2rem;
+                    margin-top: 1.5rem;
                     display: flex;
                     flex-direction: column;
                     gap: 1rem;
@@ -159,15 +360,15 @@ export const Tutorial: React.FC<TutorialProps> = ({ isOpen, onClose }) => {
                     margin-bottom: 0.5rem;
                 }
                 .indicator {
-                    width: 8px;
-                    height: 8px;
+                    width: 10px;
+                    height: 10px;
                     border-radius: 50%;
-                    background: #ddd;
+                    background: var(--border-color);
                     transition: all 0.3s;
                 }
                 .indicator.active {
-                    background: #4a90e2;
-                    transform: scale(1.2);
+                    background: var(--primary-color);
+                    transform: scale(1.3);
                 }
                 .button-group {
                     display: flex;
@@ -180,8 +381,8 @@ export const Tutorial: React.FC<TutorialProps> = ({ isOpen, onClose }) => {
                 }
                 @keyframes bounce {
                     0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
-                    40% {transform: translateY(-20px);}
-                    60% {transform: translateY(-10px);}
+                    40% {transform: translateY(-15px);}
+                    60% {transform: translateY(-8px);}
                 }
             `}</style>
         </Modal>
