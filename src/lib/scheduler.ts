@@ -1,5 +1,80 @@
-import type { Task, ScheduledTask, WorkEvent, AppSettings } from '../types';
-import { isSameDay, getHours, setHours, setMinutes, startOfDay, subDays, addDays } from 'date-fns';
+import type { Task, ScheduledTask, WorkEvent, AppSettings, RecurrenceRule } from '../types';
+import { isSameDay, getHours, setHours, setMinutes, startOfDay, subDays, addDays, addWeeks, addMonths, addYears, isWeekend, getDay } from 'date-fns';
+
+/**
+ * 繰り返しルールに基づいて次の予定日時を計算する
+ */
+export function getNextOccurrence(rule: RecurrenceRule, lastScheduledTime: number): number {
+    const lastDate = new Date(lastScheduledTime);
+    let nextDate = lastDate;
+
+    // intervalのデフォルト値は1
+    const interval = rule.interval && rule.interval > 0 ? rule.interval : 1;
+
+    switch (rule.type) {
+        case 'daily':
+            nextDate = addDays(lastDate, interval);
+            break;
+        case 'weekly':
+            if (rule.daysOfWeek && rule.daysOfWeek.length > 0) {
+                const dayMap = [...rule.daysOfWeek].sort((a, b) => a - b);
+                const currentDay = getDay(lastDate);
+
+                // 同じ週の中で、今の曜日より後の曜日を探す
+                const nextDayInWeek = dayMap.find(d => d > currentDay);
+
+                if (nextDayInWeek !== undefined) {
+                    // 同じ週の次の該当曜日へ
+                    nextDate = addDays(lastDate, nextDayInWeek - currentDay);
+                } else {
+                    // 次のサイクルの最初の該当曜日へ
+                    // まず、今の週の日曜日（基準）に戻る
+                    const currentSun = subDays(lastDate, currentDay);
+                    // interval分だけ週を進める
+                    const nextCycleSun = addWeeks(currentSun, interval);
+                    // その週の最初の該当曜日（dayMap[0]）を足す
+                    nextDate = addDays(nextCycleSun, dayMap[0]);
+                }
+            } else {
+                nextDate = addWeeks(lastDate, interval);
+            }
+            break;
+        case 'monthly':
+            nextDate = addMonths(lastDate, interval);
+            // dayOfMonthが指定されている場合、その日に補正（必要なら）
+            if (rule.dayOfMonth) {
+                // 基本的にaddMonthsで日付は維持されるが、月末処理などでずれた場合に元に戻すか？
+                // 例: 1/31 -> addMonths -> 2/28. dayOfMonth=31なら、2/28のままでよい（31日はないから）。
+                // 逆に 2/28 -> addMonths -> 3/28. dayOfMonth=31なら 3/31にすべき？
+                // ここでは単純なaddMonthsのみとする。
+                // もし厳密にするなら setDate(rule.dayOfMonth) を試みるが、月によって存在しない日の処理が必要。
+            }
+            break;
+        case 'yearly':
+            nextDate = addYears(lastDate, interval);
+            break;
+        case 'weekdays':
+            // 平日のみ (月〜金)
+            // interval日数分の平日を進めるのが定義だが、ここでは単純に「次の平日」をinterval回探すと解釈
+            // または単にinterval関係なく「次の平日」か？ 通常このタイプはinterval=1で毎日平日。
+            let remaining = interval;
+            while (remaining > 0) {
+                nextDate = addDays(nextDate, 1);
+                while (isWeekend(nextDate)) {
+                    nextDate = addDays(nextDate, 1);
+                }
+                remaining--;
+            }
+            break;
+    }
+
+    // 時間を維持する
+    const h = new Date(lastScheduledTime).getHours();
+    const m = new Date(lastScheduledTime).getMinutes();
+    nextDate = setHours(setMinutes(nextDate, m), h);
+
+    return nextDate.getTime();
+}
 
 /**
  * 指定日が休日（タスクをスケジュールできる日）かどうかを判定する

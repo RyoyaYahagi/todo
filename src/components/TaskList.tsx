@@ -91,7 +91,7 @@ export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDel
                         {item.title}
                     </div>
                     <div className="task-meta-clean">
-                        {isScheduled ? (
+                        {isScheduled && item.scheduleType !== 'none' ? (
                             getTaskDateLabel(new Date(item.scheduledTime))
                         ) : (
                             <span className="date-text" style={{ fontSize: '0.8rem', color: '#999' }}>未定</span>

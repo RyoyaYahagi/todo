@@ -11,6 +11,7 @@ import { Login } from './components/Login';
 import { Modal } from './components/Modal';
 import { Tutorial } from './components/Tutorial';
 import type { Task } from './types'; // Ensure Task is imported
+import { getNextOccurrence } from './lib/scheduler'; // Added import
 
 function App() {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -58,9 +59,30 @@ function App() {
       if (!target) return;
 
       const updatedTask = { ...target, isCompleted: !target.isCompleted };
+      const tasksToSave = [updatedTask];
 
-      // DB update (only changed item) - optimistic update is handled in useSupabaseQuery
-      await saveScheduledTasks([updatedTask]);
+      // 完了かつ繰り返し設定がある場合、次回タスクを生成
+      if (!target.isCompleted && target.recurrence) {
+        const nextTime = getNextOccurrence(target.recurrence, target.scheduledTime);
+
+        const nextTask: import('./types').ScheduledTask = {
+          id: crypto.randomUUID(),
+          taskId: target.taskId,
+          title: target.title,
+          createdAt: Date.now(),
+          scheduleType: target.scheduleType,
+          priority: target.priority,
+          manualScheduledTime: nextTime,
+          recurrence: target.recurrence, // 次回分も繰り返し設定を引き継ぐ
+          scheduledTime: nextTime,
+          isCompleted: false,
+          recurrenceSourceId: target.id
+        };
+        tasksToSave.push(nextTask);
+      }
+
+      // DB update (update current + insert next)
+      await saveScheduledTasks(tasksToSave);
     } else {
       // Complete unscheduled task
       const task = tasks.find(t => t.id === id);
