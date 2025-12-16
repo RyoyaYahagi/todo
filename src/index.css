@@ -749,6 +749,9 @@ input[type="file"] {
   /* スマホ（画面幅が狭い時）は右端基準 */
   right: 1.5rem;
   z-index: 90;
+  /* 位置変更時のアニメーションを無効化 */
+  transform: none !important;
+  transition: none;
 }
 
 @media (min-width: 640px) {
@@ -758,6 +761,9 @@ input[type="file"] {
     left: 50%;
     /* コンテンツ幅の半分(300px) - ボタンサイズ(約60px) - 余白(約20px) = 220px */
     margin-left: 220px;
+    /* 位置変更時のアニメーションを無効化 */
+    transform: none !important;
+    transition: none;
   }
 }
 
@@ -945,3 +951,112 @@ input[type="file"] {
 }
 
 /* Hide TaskForm in main view if needed, but we will control via React state */
+
+/* Schedule Type Tabs */
+.schedule-type-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 0.5rem;
+}
+
+.tab-button {
+  flex: 1;
+  padding: 0.6rem 0.3rem;
+  border: none;
+  background: #f5f5f5;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-secondary);
+}
+
+.tab-button.active {
+  background: var(--primary-color);
+  color: white;
+  font-weight: 600;
+}
+
+.tab-button:hover:not(.active) {
+  background: #e8e8e8;
+}
+
+/* Task Form Tab Content */
+.task-form .tab-content {
+  min-height: 80px;
+  padding: 0.5rem 0;
+}
+
+/* DateTime Inputs */
+.datetime-inputs {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.date-input,
+.time-input {
+  flex: 1;
+  padding: 0.8rem;
+  border: 1px solid #ddd;
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+}
+
+/* Recurrence Select */
+.recurrence-select {
+  width: 100%;
+  padding: 0.8rem;
+  border: 1px solid #ddd;
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  background: white;
+}
+
+/* None Description */
+.none-description {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 1rem 0;
+}
+
+/* Task Type Icons in Task List */
+.task-type-icon {
+  font-size: 0.9rem;
+  margin-right: 0.25rem;
+}
+
+/* Hint Text */
+.hint-text {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+/* Recurrence Section */
+.recurrence-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed #eee;
+}
+
+.recurrence-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.recurrence-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary-color);
+}
+
+.recurrence-options {
+  margin-top: 0.75rem;
+  padding-left: 1.5rem;
+}

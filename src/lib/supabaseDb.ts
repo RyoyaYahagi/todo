@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { DEFAULT_SETTINGS, type Task, type AppSettings, type WorkEvent, type ScheduledTask, type EventType } from '../types';
+import { DEFAULT_SETTINGS, type Task, type AppSettings, type WorkEvent, type ScheduledTask, type EventType, type TaskScheduleType, type RecurrenceRule } from '../types';
 
 /**
  * Supabaseのデータベース行型定義
@@ -7,19 +7,26 @@ import { DEFAULT_SETTINGS, type Task, type AppSettings, type WorkEvent, type Sch
 interface TaskRow {
     id: string;
     title: string;
-    priority: number;
+    priority: number | null;
     created_at: string;
+    schedule_type: string;
+    manual_scheduled_time: string | null;
+    recurrence: RecurrenceRule | null;
 }
 
 interface ScheduledTaskRow {
     id: string;
     task_id: string;
     title: string;
-    priority: number;
+    priority: number | null;
     scheduled_time: string;
     is_completed: boolean;
     notified_at?: string | null;
     created_at: string;
+    schedule_type: string;
+    manual_scheduled_time: string | null;
+    recurrence: RecurrenceRule | null;
+    recurrence_source_id: string | null;
 }
 
 interface EventRow {
@@ -51,8 +58,11 @@ function rowToTask(row: TaskRow): Task {
     return {
         id: row.id,
         title: row.title,
-        priority: row.priority as 1 | 2 | 3 | 4 | 5,
-        createdAt: new Date(row.created_at).getTime()
+        createdAt: new Date(row.created_at).getTime(),
+        scheduleType: (row.schedule_type || 'priority') as TaskScheduleType,
+        priority: row.priority ? (row.priority as 1 | 2 | 3 | 4 | 5) : undefined,
+        manualScheduledTime: row.manual_scheduled_time ? new Date(row.manual_scheduled_time).getTime() : undefined,
+        recurrence: row.recurrence || undefined
     };
 }
 
@@ -61,11 +71,15 @@ function rowToScheduledTask(row: ScheduledTaskRow): ScheduledTask {
         id: row.id,
         taskId: row.task_id,
         title: row.title,
-        priority: row.priority as 1 | 2 | 3 | 4 | 5,
+        createdAt: new Date(row.created_at).getTime(),
+        scheduleType: (row.schedule_type || 'priority') as TaskScheduleType,
+        priority: row.priority ? (row.priority as 1 | 2 | 3 | 4 | 5) : undefined,
+        manualScheduledTime: row.manual_scheduled_time ? new Date(row.manual_scheduled_time).getTime() : undefined,
+        recurrence: row.recurrence || undefined,
         scheduledTime: new Date(row.scheduled_time).getTime(),
         isCompleted: row.is_completed,
         notifiedAt: row.notified_at ? new Date(row.notified_at).getTime() : undefined,
-        createdAt: new Date(row.created_at).getTime()
+        recurrenceSourceId: row.recurrence_source_id || undefined
     };
 }
 
@@ -104,7 +118,7 @@ export const supabaseDb = {
 
         const { data, error } = await supabase
             .from('tasks')
-            .select('id, title, priority, created_at')
+            .select('*')
             .eq('user_id', user.id)
             .order('created_at', { ascending: true });
 
@@ -174,8 +188,11 @@ export const supabaseDb = {
                 id: task.id,
                 user_id: user.id,
                 title: task.title,
-                priority: task.priority,
-                created_at: new Date(task.createdAt).toISOString()
+                priority: task.priority ?? null,
+                created_at: new Date(task.createdAt).toISOString(),
+                schedule_type: task.scheduleType,
+                manual_scheduled_time: task.manualScheduledTime ? new Date(task.manualScheduledTime).toISOString() : null,
+                recurrence: task.recurrence || null
             });
 
         if (error) throw error;
@@ -189,7 +206,10 @@ export const supabaseDb = {
             .from('tasks')
             .update({
                 title: task.title,
-                priority: task.priority
+                priority: task.priority ?? null,
+                schedule_type: task.scheduleType,
+                manual_scheduled_time: task.manualScheduledTime ? new Date(task.manualScheduledTime).toISOString() : null,
+                recurrence: task.recurrence || null
             })
             .eq('id', task.id);
 
@@ -215,11 +235,18 @@ export const supabaseDb = {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('認証が必要です');
 
+        console.log('[supabaseDb.saveEvents] 開始:', events.length, '件');
+
         // 既存のイベントを削除
-        await supabase
+        const { error: deleteError } = await supabase
             .from('events')
             .delete()
             .eq('user_id', user.id);
+
+        if (deleteError) {
+            console.error('[supabaseDb.saveEvents] 削除エラー:', deleteError);
+            throw deleteError;
+        }
 
         // 新しいイベントを挿入
         if (events.length > 0) {
@@ -233,8 +260,13 @@ export const supabaseDb = {
                     event_type: event.eventType
                 })));
 
-            if (error) throw error;
+            if (error) {
+                console.error('[supabaseDb.saveEvents] 挿入エラー:', error);
+                throw error;
+            }
         }
+
+        console.log('[supabaseDb.saveEvents] 完了');
     },
 
     /**
@@ -257,34 +289,49 @@ export const supabaseDb = {
     /**
      * スケジュール済みタスクを保存
      */
+    /**
+     * スケジュール済みタスクをバッチで保存
+     *
+     * N+1クエリ問題を避けるため、1回のupsertで全タスクを保存する。
+     */
     async saveScheduledTasks(tasks: ScheduledTask[]): Promise<void> {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('認証が必要です');
 
+        if (tasks.length === 0) {
+            console.log('saveScheduledTasks: タスクなし、スキップ');
+            return;
+        }
+
         console.log('saveScheduledTasks called with:', tasks.length, 'tasks');
 
-        for (const task of tasks) {
-            console.log('Saving scheduled task:', task.id, task.title);
-            const { error } = await supabase
-                .from('scheduled_tasks')
-                .upsert({
-                    id: task.id,
-                    user_id: user.id,
-                    task_id: task.taskId,
-                    title: task.title,
-                    priority: task.priority,
-                    scheduled_time: new Date(task.scheduledTime).toISOString(),
-                    is_completed: task.isCompleted,
-                    notified_at: task.notifiedAt ? new Date(task.notifiedAt).toISOString() : null,
-                    created_at: new Date(task.createdAt).toISOString()
-                });
+        // バッチupsert用のレコード配列を構築
+        const records = tasks.map(task => ({
+            id: task.id,
+            user_id: user.id,
+            task_id: task.taskId,
+            title: task.title,
+            priority: task.priority ?? null,
+            scheduled_time: new Date(task.scheduledTime).toISOString(),
+            is_completed: task.isCompleted,
+            notified_at: task.notifiedAt ? new Date(task.notifiedAt).toISOString() : null,
+            created_at: new Date(task.createdAt).toISOString(),
+            schedule_type: task.scheduleType,
+            manual_scheduled_time: task.manualScheduledTime ? new Date(task.manualScheduledTime).toISOString() : null,
+            recurrence: task.recurrence || null,
+            recurrence_source_id: task.recurrenceSourceId || null
+        }));
 
-            if (error) {
-                console.error('Error saving scheduled task:', error);
-                throw error;
-            }
-            console.log('Saved scheduled task successfully:', task.id);
+        const { error } = await supabase
+            .from('scheduled_tasks')
+            .upsert(records);
+
+        if (error) {
+            console.error('Error saving scheduled tasks (batch):', error);
+            throw error;
         }
+
+        console.log('Saved', tasks.length, 'scheduled tasks successfully (batch)');
     },
 
     /**
@@ -296,7 +343,7 @@ export const supabaseDb = {
 
         const { data, error } = await supabase
             .from('scheduled_tasks')
-            .select('id, task_id, title, priority, scheduled_time, is_completed, notified_at, created_at')
+            .select('*')
             .eq('user_id', user.id)
             .order('scheduled_time', { ascending: true });
 
@@ -343,8 +390,9 @@ export const supabaseDb = {
     },
 
     /**
-     * ユーザーの未完了スケジュール済みタスクを全て削除
+     * ユーザーの未完了・優先度ベースのスケジュール済みタスクを全て削除
      * (再スケジューリング時のクリーンアップ用)
+     * 手動設定タスク(time, recurrence, none)は削除しない
      */
     async deletePendingScheduledTasks(): Promise<void> {
         const { data: { user } } = await supabase.auth.getUser();
@@ -354,7 +402,8 @@ export const supabaseDb = {
             .from('scheduled_tasks')
             .delete()
             .eq('user_id', user.id)
-            .eq('is_completed', false);
+            .eq('is_completed', false)
+            .eq('schedule_type', 'priority'); // 優先度タスクのみ削除
 
         if (error) throw error;
     },

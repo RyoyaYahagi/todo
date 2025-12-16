@@ -64,7 +64,7 @@ export const Settings: React.FC<SettingsProps> = ({
                     console.log('ICSパース完了: イベント数 =', events.length);
 
                     // イベントタイプ別にカウント
-                    const typeCount = { '夜勤': 0, '日勤': 0, '休み': 0, 'その他': 0 };
+                    const typeCount: Record<string, number> = { '夜勤': 0, '日勤': 0, '休み': 0, 'その他': 0, 'スケジュール除外': 0, 'スケジュール対象': 0 };
                     events.forEach(ev => {
                         typeCount[ev.eventType]++;
                     });
@@ -98,7 +98,7 @@ export const Settings: React.FC<SettingsProps> = ({
         setWebhookTestStatus('送信中...');
         const result = await sendDiscordNotification(
             localSettings.discordWebhookUrl,
-            [{ id: 'test', taskId: 'test', title: 'テストタスク', priority: 5, createdAt: 0, scheduledTime: Date.now(), isCompleted: false }],
+            [{ id: 'test', taskId: 'test', title: 'テストタスク', priority: 5, createdAt: 0, scheduledTime: Date.now(), isCompleted: false, scheduleType: 'priority' }],
             '【テスト通知】これはテスト通知です。'
         );
         setWebhookTestStatus(result ? '✅ 送信成功！Discordを確認してください' : '❌ 送信失敗 (URLを確認してください)');
@@ -160,9 +160,9 @@ export const Settings: React.FC<SettingsProps> = ({
 
             {/* カレンダー読み込みセクション */}
             <section className="settings-section">
-                <h3>📅 勤務カレンダー読み込み</h3>
+                <h3>📅 予定表の読み込み</h3>
                 <p className="description">
-                    勤務表の .ics ファイルを読み込むと、休日を自動判定してタスクをスケジューリングします。
+                    予定表の .ics ファイルを読み込むと、休日を自動判定してタスクをスケジューリングします。
                 </p>
 
                 <button
@@ -186,9 +186,9 @@ export const Settings: React.FC<SettingsProps> = ({
                         <h4>📝 イベント名の書き方</h4>
                         <p>カレンダーのイベント名は以下のいずれかにしてください：</p>
                         <ul>
-                            <li><strong>夜勤</strong> - 夜間勤務</li>
-                            <li><strong>日勤</strong> - 日中勤務</li>
-                            <li><strong>休み</strong> - 休日</li>
+                            <li><strong>夜勤</strong> - 夜間の予定</li>
+                            <li><strong>日勤</strong> - 日中の予定</li>
+                            <li><strong>休み</strong> - 休日（タスクを予定可能）</li>
                         </ul>
 
                         <h4>🎯 休日の判定ルール</h4>

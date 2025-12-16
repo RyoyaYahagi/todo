@@ -3,16 +3,19 @@ import type { Task, ScheduledTask, Priority } from '../types';
 import { format, isBefore, isToday, isTomorrow, isYesterday, startOfDay } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
+import { formatRecurrence } from '../lib/formatter';
+
 interface TaskListProps {
     tasks: Task[];
     scheduledTasks: ScheduledTask[];
     onDelete: (id: string) => void;
-    onComplete: (id: string) => void;
+    onComplete: (id: string, isScheduled: boolean) => void;
     onUpdatePriority: (id: string, priority: Priority) => void;
+    onEdit?: (id: string) => void;
     maxPriority?: number;
 }
 
-export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDelete, onComplete, onUpdatePriority, maxPriority = 5 }) => {
+export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDelete, onComplete, onUpdatePriority, onEdit, maxPriority = 5 }) => {
     // 日付フォーマッター
     const getTaskDateLabel = (date: Date) => {
         if (isYesterday(date)) return <span className="date-text overdue">昨日 (期限切れ)</span>;
@@ -43,15 +46,27 @@ export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDel
     const scheduledTaskIds = new Set(scheduledTasks.map(st => st.taskId));
     const unscheduledTasks = tasks.filter(t => !scheduledTaskIds.has(t.id));
 
-    // 未定タスク（優先度順）
+    // 未定タスク（優先度順 - 優先度がないものは最後）
     const sortedUnscheduled = [...unscheduledTasks].sort((a, b) => {
-        if (b.priority !== a.priority) return b.priority - a.priority;
+        const priorityA = a.priority ?? 0;
+        const priorityB = b.priority ?? 0;
+        if (priorityB !== priorityA) return priorityB - priorityA;
         return b.createdAt - a.createdAt;
     });
 
     const otherTasks = [...futureScheduled, ...sortedUnscheduled]; // 明日以降の後に未定を表示
 
-    // 修正: renderTaskItem内のハンドラ引数を正す
+    // タスクタイプのアイコンを取得
+    const getScheduleTypeIcon = (scheduleType?: string) => {
+        switch (scheduleType) {
+            case 'time': return '🕐';
+            case 'recurrence': return '🔁';
+            case 'priority': return '⭐';
+            case 'none': return '📝';
+            default: return '📝';
+        }
+    };
+
     const renderItem = (item: any, isScheduled: boolean) => {
         const realTaskId = isScheduled ? item.taskId : item.id;
         const isCompleted = isScheduled ? item.isCompleted : false;
@@ -60,34 +75,61 @@ export const TaskList: React.FC<TaskListProps> = ({ tasks, scheduledTasks, onDel
             <li key={item.id} className="task-item-clean">
                 <div
                     className={`check-circle ${isCompleted ? 'checked' : ''}`}
-                    onClick={() => isScheduled && onComplete(item.id)} // ScheduledTaskのIDを渡す
-                    style={{ cursor: isScheduled ? 'pointer' : 'default', borderColor: isScheduled ? '#ddd' : '#eee' }}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onComplete(item.id, isScheduled);
+                    }}
+                    style={{ cursor: 'pointer', borderColor: isScheduled ? '#ddd' : '#eee' }}
                 />
-                <div className="task-content-clean">
+                <div
+                    className="task-content-clean"
+                    onClick={() => onEdit && onEdit(realTaskId)}
+                    style={{ cursor: onEdit ? 'pointer' : 'default' }}
+                >
                     <div className={`task-title-clean ${isCompleted ? 'completed' : ''}`}>
+                        <span className="task-type-icon">{getScheduleTypeIcon(item.scheduleType)}</span>
                         {item.title}
                     </div>
                     <div className="task-meta-clean">
-                        {isScheduled ? (
+                        {isScheduled && item.scheduleType !== 'none' ? (
                             getTaskDateLabel(new Date(item.scheduledTime))
                         ) : (
                             <span className="date-text" style={{ fontSize: '0.8rem', color: '#999' }}>未定</span>
                         )}
+
+                        {/* 繰り返し情報の表示 */}
+                        {item.recurrence && (
+                            <>
+                                <span style={{ margin: '0 0.5rem', color: '#eee' }}>|</span>
+                                <span className="recurrence-info" style={{ fontSize: '0.75rem', color: '#666', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                    🔁 {formatRecurrence(item.recurrence)}
+                                </span>
+                            </>
+                        )}
+
                         <span style={{ margin: '0 0.5rem', color: '#eee' }}>|</span>
                         <select
-                            className={`priority-badge p-${Math.min(item.priority, maxPriority)}`}
-                            value={Math.min(item.priority, maxPriority)}
-                            onChange={(e) => onUpdatePriority(realTaskId, parseInt(e.target.value) as Priority)}
+                            className={`priority-badge p-${item.priority ? Math.min(item.priority, maxPriority) : 0}`}
+                            value={item.priority ? Math.min(item.priority, maxPriority) : ''}
+                            onChange={(e) => {
+                                e.stopPropagation();
+                                onUpdatePriority(realTaskId, parseInt(e.target.value) as Priority);
+                            }}
                             style={{ border: 'none', cursor: 'pointer', outline: 'none', fontSize: '0.75rem' }}
                             onClick={(e) => e.stopPropagation()}
+                            disabled={!item.priority}
                         >
-                            {Array.from({ length: maxPriority }, (_, i) => i + 1).map(p => <option key={p} value={p} style={{ color: 'black' }}>P{p}</option>)}
+                            {/* 優先度がない場合は選択できないようにするか、P0などを出すか。ここでは非表示はせず操作不能に */}
+                            {item.priority ? Array.from({ length: maxPriority }, (_, i) => i + 1).map(p => <option key={p} value={p} style={{ color: 'black' }}>P{p}</option>) : <option value="">-</option>}
                         </select>
                     </div>
                 </div>
                 <button
                     className="btn-delete"
-                    onClick={() => onDelete(realTaskId)}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(realTaskId);
+                    }}
                     aria-label="削除"
                     style={{ marginLeft: 'auto', fontSize: '1.2rem', color: '#ccc' }}
                 >

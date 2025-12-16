@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabaseDb } from '../lib/supabaseDb';
 import { reschedulePendingTasks } from '../lib/scheduler';
-import { DEFAULT_SETTINGS, type Task, type WorkEvent, type ScheduledTask, type AppSettings } from '../types';
+import { DEFAULT_SETTINGS, type Task, type WorkEvent, type ScheduledTask, type AppSettings, type TaskScheduleType, type Priority, type RecurrenceRule } from '../types';
 import { useRef, useCallback } from 'react';
 
 /**
@@ -58,12 +58,15 @@ export function useSupabaseQuery() {
 
     /**
      * イベント取得クエリ
+     * 除外設定の変更時にキャッシュが上書きされないよう設定
      */
     const eventsQuery = useQuery({
         queryKey: QUERY_KEYS.events,
         queryFn: () => supabaseDb.getAllEvents(),
         enabled: isAuthReady,
         staleTime: 5 * 60 * 1000,
+        refetchOnWindowFocus: false, // ウィンドウフォーカス時に再取得しない
+        refetchOnMount: false, // マウント時に再取得しない（キャッシュ優先）
     });
 
     /**
@@ -155,78 +158,183 @@ export function useSupabaseQuery() {
     /**
      * タスク追加ミューテーション
      * 楽観的更新で即時UIに反映し、DB保存とスケジューリングはバックグラウンドで実行
+     * scheduleType === 'priority' の場合のみ自動スケジューリングを実行
      */
     const addTaskMutation = useMutation({
-        mutationFn: async ({ title, priority }: { title: string; priority: 1 | 2 | 3 | 4 | 5 }) => {
+        mutationFn: async ({ id, title, scheduleType, priority, manualScheduledTime, recurrence, createdAt }: {
+            id: string;
+            title: string;
+            scheduleType: TaskScheduleType;
+            priority?: Priority;
+            manualScheduledTime?: number;
+            recurrence?: RecurrenceRule;
+            createdAt: number;
+        }) => {
             const newTask: Task = {
-                id: crypto.randomUUID(),
+                id,
                 title,
+                scheduleType,
+                createdAt,
                 priority,
-                createdAt: Date.now()
+                manualScheduledTime,
+                recurrence
             };
             await supabaseDb.addTask(newTask);
+
+            // 日時指定タスクの場合、scheduled_tasks にも保存
+            // (繰り返し設定がある場合は、繰り返しロジック側で処理が必要だが、一旦初回分として保存する)
+            if ((scheduleType === 'time' || scheduleType === 'recurrence') && manualScheduledTime) {
+                const scheduledTask: ScheduledTask = {
+                    id: crypto.randomUUID(),
+                    taskId: newTask.id,
+                    title: newTask.title,
+                    scheduledTime: manualScheduledTime,
+                    isCompleted: false,
+                    createdAt: newTask.createdAt,
+                    priority: newTask.priority,
+                    scheduleType: newTask.scheduleType,
+                    manualScheduledTime: newTask.manualScheduledTime,
+                    recurrence: newTask.recurrence
+                };
+                // ScheduledTask型に合わせた保存（内部でカラム除外などの処理はsupabaseDb側で行われる）
+                await supabaseDb.saveScheduledTasks([scheduledTask]);
+            }
+
             return newTask;
         },
-        onMutate: async ({ title, priority }) => {
+        onMutate: async ({ id, title, scheduleType, priority, manualScheduledTime, recurrence, createdAt }) => {
             // キャンセル中のクエリをキャンセル
             await queryClient.cancelQueries({ queryKey: QUERY_KEYS.tasks });
+            await queryClient.cancelQueries({ queryKey: QUERY_KEYS.scheduledTasks });
 
             // 現在のキャッシュを保存（ロールバック用）
             const previousTasks = queryClient.getQueryData<Task[]>(QUERY_KEYS.tasks);
+            const previousScheduledTasks = queryClient.getQueryData<ScheduledTask[]>(QUERY_KEYS.scheduledTasks);
 
-            // 楽観的更新: DB保存前にUIを更新
+            // 楽観的更新: DB保存前にUIを更新（同じIDを使用）
             const optimisticTask: Task = {
-                id: crypto.randomUUID(),
+                id,
                 title,
+                scheduleType,
+                createdAt,
                 priority,
-                createdAt: Date.now()
+                manualScheduledTime,
+                recurrence
             };
             queryClient.setQueryData<Task[]>(QUERY_KEYS.tasks, (old) =>
                 old ? [...old, optimisticTask] : [optimisticTask]
             );
 
-            return { previousTasks, optimisticTask };
+            // 日時指定タスクの場合、scheduledTasks にも楽観的追加
+            if ((scheduleType === 'time' || scheduleType === 'recurrence') && manualScheduledTime) {
+                const optimisticScheduledTask: ScheduledTask = {
+                    id: crypto.randomUUID(), // 一時的なID（リロードまで有効）
+                    taskId: id,
+                    title,
+                    scheduledTime: manualScheduledTime,
+                    isCompleted: false,
+                    createdAt,
+                    priority,
+                    scheduleType,
+                    manualScheduledTime,
+                    recurrence
+                };
+                queryClient.setQueryData<ScheduledTask[]>(QUERY_KEYS.scheduledTasks, (old) =>
+                    old ? [...old, optimisticScheduledTask] : [optimisticScheduledTask]
+                );
+            }
+
+            return { previousTasks, previousScheduledTasks };
         },
         onError: (_err, _variables, context) => {
             // エラー時はロールバック
+            console.error('タスク追加エラー:', _err);
             if (context?.previousTasks) {
                 queryClient.setQueryData(QUERY_KEYS.tasks, context.previousTasks);
             }
+            if (context?.previousScheduledTasks) {
+                queryClient.setQueryData(QUERY_KEYS.scheduledTasks, context.previousScheduledTasks);
+            }
         },
-        onSuccess: (newTask, _variables, context) => {
-            // 楽観的更新のIDを実際のタスクIDに更新
-            queryClient.setQueryData<Task[]>(QUERY_KEYS.tasks, (old) => {
-                if (!old) return [newTask];
-                return old.map(t => t.id === context?.optimisticTask.id ? newTask : t);
-            });
+        onSuccess: (newTask) => {
+            // IDは既に一致しているので置き換え不要、キャッシュはそのまま維持
 
-            // 自動スケジューリング（バックグラウンド）
-            runAutoScheduleBackground();
+            // 優先度タスクの場合のみ自動スケジューリング（バックグラウンド）
+            if (newTask.scheduleType === 'priority') {
+                runAutoScheduleBackground();
+            } else {
+                // 日時指定などは即時反映済みだが、念のため正規化のためにinvalidateしてもいいかもしれない
+                // しかし楽観的更新がスムーズに見えるため、ここでは何もしないか、遅延してinvalidate
+                queryClient.invalidateQueries({ queryKey: QUERY_KEYS.scheduledTasks });
+            }
         },
     });
 
     /**
      * タスク更新ミューテーション
+     * タイトル・優先度等の変更をScheduledTaskにも同期
      */
     const updateTaskMutation = useMutation({
         mutationFn: async (task: Task) => {
             await supabaseDb.updateTask(task);
+
+            // 対応するScheduledTaskも更新
+            const currentScheduled = queryClient.getQueryData<ScheduledTask[]>(QUERY_KEYS.scheduledTasks) ?? [];
+            const relatedSchedules = currentScheduled.filter(s => s.taskId === task.id);
+
+            if (relatedSchedules.length > 0) {
+                const updatedSchedules = relatedSchedules.map(s => ({
+                    ...s,
+                    title: task.title,
+                    priority: task.priority,
+                    scheduleType: task.scheduleType,
+                    manualScheduledTime: task.manualScheduledTime,
+                    recurrence: task.recurrence,
+                    // time/recurrence タイプでmanualScheduledTimeが変更された場合、scheduledTimeも更新
+                    scheduledTime: (task.scheduleType === 'time' || task.scheduleType === 'recurrence') && task.manualScheduledTime
+                        ? task.manualScheduledTime
+                        : s.scheduledTime
+                }));
+                await supabaseDb.saveScheduledTasks(updatedSchedules);
+            }
+
             return task;
         },
         onMutate: async (updatedTask) => {
             await queryClient.cancelQueries({ queryKey: QUERY_KEYS.tasks });
-            const previousTasks = queryClient.getQueryData<Task[]>(QUERY_KEYS.tasks);
+            await queryClient.cancelQueries({ queryKey: QUERY_KEYS.scheduledTasks });
 
-            // 楽観的更新
+            const previousTasks = queryClient.getQueryData<Task[]>(QUERY_KEYS.tasks);
+            const previousScheduled = queryClient.getQueryData<ScheduledTask[]>(QUERY_KEYS.scheduledTasks);
+
+            // Taskの楽観的更新
             queryClient.setQueryData<Task[]>(QUERY_KEYS.tasks, (old) =>
                 old?.map(t => t.id === updatedTask.id ? updatedTask : t) ?? []
             );
 
-            return { previousTasks };
+            // ScheduledTaskの楽観的更新（title, priority等を同期）
+            queryClient.setQueryData<ScheduledTask[]>(QUERY_KEYS.scheduledTasks, (old) =>
+                old?.map(s => s.taskId === updatedTask.id ? {
+                    ...s,
+                    title: updatedTask.title,
+                    priority: updatedTask.priority,
+                    scheduleType: updatedTask.scheduleType,
+                    manualScheduledTime: updatedTask.manualScheduledTime,
+                    recurrence: updatedTask.recurrence,
+                    scheduledTime: (updatedTask.scheduleType === 'time' || updatedTask.scheduleType === 'recurrence') && updatedTask.manualScheduledTime
+                        ? updatedTask.manualScheduledTime
+                        : s.scheduledTime
+                } : s) ?? []
+            );
+
+            return { previousTasks, previousScheduled };
         },
         onError: (_err, _variables, context) => {
             if (context?.previousTasks) {
                 queryClient.setQueryData(QUERY_KEYS.tasks, context.previousTasks);
+            }
+            if (context?.previousScheduled) {
+                queryClient.setQueryData(QUERY_KEYS.scheduledTasks, context.previousScheduled);
             }
         },
         onSuccess: () => {
@@ -280,24 +388,38 @@ export function useSupabaseQuery() {
 
     /**
      * イベント保存ミューテーション
+     * 除外設定の変更時も使用される
      */
     const saveEventsMutation = useMutation({
         mutationFn: async (newEvents: WorkEvent[]) => {
+            console.log('[saveEventsMutation] mutationFn開始:', newEvents.length, '件');
             await supabaseDb.saveEvents(newEvents);
+            console.log('[saveEventsMutation] mutationFn完了');
             return newEvents;
         },
         onMutate: async (newEvents) => {
+            console.log('[saveEventsMutation] onMutate: 楽観的更新開始');
+            // 進行中のクエリをキャンセル（競合防止）
             await queryClient.cancelQueries({ queryKey: QUERY_KEYS.events });
             const previousEvents = queryClient.getQueryData<WorkEvent[]>(QUERY_KEYS.events);
+            console.log('[saveEventsMutation] 前のイベント数:', previousEvents?.length);
+            // 楽観的更新
             queryClient.setQueryData<WorkEvent[]>(QUERY_KEYS.events, newEvents);
+            console.log('[saveEventsMutation] 楽観的更新完了:', newEvents.length, '件に設定');
             return { previousEvents };
         },
-        onError: (_err, _variables, context) => {
+        onError: (err, _variables, context) => {
+            console.error('[saveEventsMutation] onError:', err);
             if (context?.previousEvents) {
+                console.log('[saveEventsMutation] ロールバック:', context.previousEvents.length, '件に戻す');
                 queryClient.setQueryData(QUERY_KEYS.events, context.previousEvents);
             }
         },
-        onSuccess: () => {
+        onSuccess: (newEvents) => {
+            console.log('[saveEventsMutation] onSuccess:', newEvents.length, '件で確定');
+            // 成功後も明示的にキャッシュを設定（他の処理による上書き防止）
+            queryClient.setQueryData<WorkEvent[]>(QUERY_KEYS.events, newEvents);
+            // 自動スケジュールをバックグラウンドで実行
             runAutoScheduleBackground();
         },
     });
@@ -315,15 +437,16 @@ export function useSupabaseQuery() {
             const previousScheduled = queryClient.getQueryData<ScheduledTask[]>(QUERY_KEYS.scheduledTasks);
 
             // 楽観的更新: 指定されたタスクを即座にUIに反映
+            // 楽観的更新: 指定されたタスクを即座にUIに反映（追加・更新）
             queryClient.setQueryData<ScheduledTask[]>(QUERY_KEYS.scheduledTasks, (old) => {
-                if (!old) return newScheduledTasks;
-                const updatedIds = new Set(newScheduledTasks.map(t => t.id));
-                return old.map(t => {
-                    if (updatedIds.has(t.id)) {
-                        return newScheduledTasks.find(nt => nt.id === t.id) || t;
-                    }
-                    return t;
+                const current = old || [];
+                const taskMap = new Map(current.map(t => [t.id, t]));
+
+                newScheduledTasks.forEach(nt => {
+                    taskMap.set(nt.id, nt);
                 });
+
+                return Array.from(taskMap.values());
             });
 
             return { previousScheduled };
@@ -429,10 +552,30 @@ export function useSupabaseQuery() {
         },
     });
 
-    // useSupabaseと同じインターフェースを維持
+    // useSupabaseと同じインターフェースを拡張
     // mutateAsyncを使用してPromiseを返す（UIはonMutateで即時更新済み）
-    const addTask = async (title: string, priority: 1 | 2 | 3 | 4 | 5) => {
-        await addTaskMutation.mutateAsync({ title, priority });
+    const addTask = async (
+        title: string,
+        scheduleType: TaskScheduleType,
+        options?: {
+            priority?: Priority;
+            manualScheduledTime?: number;
+            recurrence?: RecurrenceRule;
+        }
+    ) => {
+        // IDとタイムスタンプを事前生成して楽観的更新と一致させる
+        const id = crypto.randomUUID();
+        const createdAt = Date.now();
+
+        await addTaskMutation.mutateAsync({
+            id,
+            title,
+            scheduleType,
+            createdAt,
+            priority: options?.priority,
+            manualScheduledTime: options?.manualScheduledTime,
+            recurrence: options?.recurrence
+        });
     };
 
     const updateTask = async (task: Task) => {

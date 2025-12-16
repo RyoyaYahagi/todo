@@ -29,8 +29,13 @@ export class IcsParser {
 
             if (line.startsWith('END:VEVENT')) {
                 inEvent = false;
+                // dtstart が存在することを確認してから呼び出し
                 if (currentEvent.summary && currentEvent.dtstart) {
-                    const event = this.createWorkEvent(currentEvent);
+                    const event = this.createWorkEvent({
+                        summary: currentEvent.summary,
+                        dtstart: currentEvent.dtstart,
+                        dtend: currentEvent.dtend
+                    });
                     if (event) {
                         events.push(event);
                     }
@@ -153,7 +158,7 @@ export class IcsParser {
      * @param raw パースされた生データ
      * @returns WorkEvent
      */
-    private createWorkEvent(raw: any): WorkEvent {
+    private createWorkEvent(raw: { summary?: string; dtstart: string; dtend?: string }): WorkEvent {
         const summary = raw.summary || '';
         let type: EventType = 'その他';
 
