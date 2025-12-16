@@ -64,29 +64,10 @@ export function useNotifications(
             }
 
             // 2. Task Start Notification (タスク開始通知)
-            if (settings.notifyBeforeTask && settings.discordWebhookUrl) {
-                scheduledTasks.forEach(async (task) => {
-                    if (task.isCompleted) return;
-
-                    const taskTime = new Date(task.scheduledTime);
-                    const notifyTime = new Date(taskTime);
-                    notifyTime.setMinutes(notifyTime.getMinutes() - settings.notifyBeforeTaskMinutes);
-
-                    // Check if we hit the notify time
-                    // We need to avoid double sending. 
-                    // Usually we flag the task as "notified", but scheduledTask structure doesn't have it.
-                    // For simplicity, we check if current time is within [notifyTime, notifyTime + 1min]
-
-                    const diff = now.getTime() - notifyTime.getTime();
-                    if (diff >= 0 && diff < 60000) {
-                        await sendDiscordNotification(
-                            settings.discordWebhookUrl,
-                            [task],
-                            `⏰ **タスク開始 ${settings.notifyBeforeTaskMinutes}分前**`
-                        );
-                    }
-                });
-            }
+            // ※ Edge Function (notify-discord) に一元化。フロントからは送信しない。
+            // if (settings.notifyBeforeTask && settings.discordWebhookUrl) {
+            //     ...
+            // }
 
             lastCheckRef.current = Date.now();
         }, 30000); // Check every 30 seconds

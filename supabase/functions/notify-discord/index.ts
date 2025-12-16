@@ -226,7 +226,7 @@ Deno.serve(async (req) => {
                         // JSTに変換して表示
                         const jstH = (time.getUTCHours() + 9) % 24
                         const jstM = time.getUTCMinutes()
-                        return `・${jstH.toString().padStart(2, '0')}:${jstM.toString().padStart(2, '0')} - ${t.title} (優先度: ${t.priority})`
+                        return `・${jstH.toString().padStart(2, '0')}:${jstM.toString().padStart(2, '0')} - ${t.title}`
                     }).join('\n')
 
                     const sent = await sendDiscordNotification(
@@ -284,10 +284,12 @@ Deno.serve(async (req) => {
                         .single()
 
                     if (updatedTask && !updateError) {
-                        console.log('[notify-discord] ロック獲得成功。Discord通知送信...')
+                        const taskTimeForDisplay = new Date(task.scheduled_time)
+                        const taskDisplayH = (taskTimeForDisplay.getUTCHours() + 9) % 24
+                        const taskDisplayM = taskTimeForDisplay.getUTCMinutes()
                         const sent = await sendDiscordNotification(
                             settings.discord_webhook_url,
-                            `⏰ **タスク開始 ${settings.notify_before_task_minutes}分前**\n・${task.title} (優先度: ${task.priority})`
+                            `⏰ **タスク開始 ${settings.notify_before_task_minutes}分前**\n・${taskDisplayH.toString().padStart(2, '0')}:${taskDisplayM.toString().padStart(2, '0')} - ${task.title}`
                         )
 
                         if (sent) {

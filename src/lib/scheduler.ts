@@ -261,9 +261,11 @@ export function reschedulePendingTasks(
     const completedSchedules = existingScheduledTasks.filter(t => t.isCompleted);
     const completedTaskIds = new Set(completedSchedules.map(t => t.taskId));
 
-    // 2. 時間指定タスク（手動スケジュール）を特定
+    // 2. 時間指定タスク・繰り返しタスク（手動スケジュール）を特定
     //    これらは自動スケジュールの対象外だがその時間帯を避ける必要がある
-    const manualTimeTasks = allTasks.filter(t => t.scheduleType === 'time' && t.manualScheduledTime);
+    const manualTimeTasks = allTasks.filter(t =>
+        (t.scheduleType === 'time' || t.scheduleType === 'recurrence') && t.manualScheduledTime
+    );
 
     // 3. 自動スケジューリング対象: scheduleType === 'priority' かつ未完了
     const pendingPriorityTasks = allTasks
