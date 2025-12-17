@@ -1137,3 +1137,76 @@ select {
   margin-top: 0.75rem;
   padding-left: 1.5rem;
 }
+
+/* 曜日選択（毎週/隔週繰り返し用） */
+.days-of-week-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.day-checkbox-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
+  background: var(--card-bg);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  color: var(--text-primary);
+}
+
+.day-checkbox-label:hover {
+  border-color: var(--primary-color);
+}
+
+.day-checkbox-label.selected {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.day-checkbox-label input {
+  display: none;
+}
+
+/* 日曜日の色 */
+.day-checkbox-label:nth-child(1) {
+  color: #e74c3c;
+}
+
+.day-checkbox-label:nth-child(1).selected {
+  background: #e74c3c;
+  border-color: #e74c3c;
+  color: white;
+}
+
+/* 土曜日の色 */
+.day-checkbox-label:nth-child(7) {
+  color: #3498db;
+}
+
+.day-checkbox-label:nth-child(7).selected {
+  background: #3498db;
+  border-color: #3498db;
+  color: white;
+}
+
+/* カレンダーモード時のヒント */
+.calendar-mode-hint {
+  padding: 0.75rem;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.calendar-mode-hint .hint-text {
+  margin: 0;
+}

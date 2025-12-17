@@ -26,6 +26,12 @@ interface CalendarProps {
     onEditEvent?: (event: WorkEvent) => void;
     /** 新規イベントを追加するコールバック（オプション） */
     onAddEvent?: (date: Date) => void;
+    /** タスクを追加するコールバック（オプション） */
+    onAddTask?: (date: Date) => void;
+    /** タスクを編集するコールバック（オプション） */
+    onEditTask?: (task: ScheduledTask) => void;
+    /** タスクを削除するコールバック（オプション） */
+    onDeleteTask?: (taskId: string) => void;
 }
 
 /**
@@ -34,7 +40,7 @@ interface CalendarProps {
  * イベントとスケジュール済みタスクを表示する。
  * 日付セルをタップすると、詳細モーダルが表示される。
  */
-export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, onToggleExclude, onEditEvent, onAddEvent }) => {
+export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, onToggleExclude, onEditEvent, onAddEvent, onAddTask, onEditTask, onDeleteTask }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     // 選択された日付のみを保持（詳細はevents/scheduledTasksから動的に取得）
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -337,8 +343,9 @@ export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, onTo
                                                 padding: '0.5rem 0',
                                                 borderBottom: '1px solid var(--border-color)',
                                                 opacity: task.isCompleted ? 0.6 : 1,
-                                                textDecoration: task.isCompleted ? 'line-through' : 'none'
+                                                cursor: onEditTask || onDeleteTask ? 'pointer' : 'default'
                                             }}
+                                            onClick={() => onEditTask && onEditTask(task)}
                                         >
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                 <span style={{
@@ -350,15 +357,57 @@ export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, onTo
                                                 }}>
                                                     {task.priority ? `P${task.priority}` : '-'}
                                                 </span>
-                                                <span style={{ flex: 1 }}>{task.title}</span>
+                                                <span style={{ flex: 1, textDecoration: task.isCompleted ? 'line-through' : 'none' }}>{task.title}</span>
+                                                {onDeleteTask && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (window.confirm(`「${task.title}」を削除しますか？`)) {
+                                                                onDeleteTask(task.id);
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            color: '#ff3b30',
+                                                            cursor: 'pointer',
+                                                            padding: '0.25rem',
+                                                            fontSize: '1rem'
+                                                        }}
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                )}
                                             </div>
                                             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
                                                 {format(new Date(task.scheduledTime), 'HH:mm')}
                                                 {task.isCompleted && ' ✓ 完了'}
+                                                {(onEditTask || onDeleteTask) && <span style={{ marginLeft: '0.5rem', color: 'var(--text-muted)' }}>タップで編集</span>}
                                             </div>
                                         </li>
                                     ))}
                                 </ul>
+                            )}
+                            {/* タスク追加ボタン */}
+                            {onAddTask && (
+                                <button
+                                    onClick={() => {
+                                        setSelectedDate(null);
+                                        onAddTask(selectedDayDetails.date);
+                                    }}
+                                    style={{
+                                        marginTop: '0.5rem',
+                                        padding: '0.5rem 1rem',
+                                        border: '1px dashed var(--border-color)',
+                                        borderRadius: '8px',
+                                        background: 'var(--card-bg)',
+                                        cursor: 'pointer',
+                                        width: '100%',
+                                        color: 'var(--text-secondary)'
+                                    }}
+                                >
+                                    + タスクを追加
+                                </button>
                             )}
                         </section>
 
