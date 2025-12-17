@@ -632,7 +632,7 @@ select {
 /* Help Section */
 .btn-help {
   background: none;
-  border: 1px dashed #ccc;
+  border: 1px dashed var(--border-color);
   color: var(--primary-color);
   padding: 0.5rem 1rem;
   border-radius: var(--radius-md);
@@ -644,7 +644,8 @@ select {
 }
 
 .btn-help:hover {
-  background: #f9f9f9;
+  background: var(--bg-secondary);
+  border-color: var(--primary-color);
 }
 
 .help-box {
@@ -1138,6 +1139,14 @@ select {
   width: 18px;
   height: 18px;
   accent-color: var(--primary-color);
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.recurrence-toggle span {
+  display: flex;
+  align-items: center;
+  line-height: 18px;
 }
 
 .recurrence-options {
