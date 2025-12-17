@@ -244,18 +244,29 @@ function App() {
             <TaskList
               tasks={tasks}
               scheduledTasks={scheduledTasks}
-              onDelete={deleteTask}
+              onDelete={async (id, isRecurringInstance) => {
+                if (isRecurringInstance) {
+                  // 繰り返しタスクのインスタンス: ScheduledTaskのみ削除
+                  await deleteScheduledTask(id);
+                } else {
+                  // 通常タスク: 元のTaskを削除
+                  await deleteTask(id);
+                }
+              }}
               onComplete={completeTask}
               onUpdatePriority={handlePriorityChange}
               onEdit={handleEditTask}
               maxPriority={settings.maxPriority}
               onDeleteCompleted={async () => {
                 // 完了済みタスクを一括削除
-                const completedTaskIds = scheduledTasks
-                  .filter(st => st.isCompleted)
-                  .map(st => st.taskId);
-                for (const id of completedTaskIds) {
-                  await deleteTask(id);
+                // 繰り返しタスクのインスタンスはScheduledTaskのみ削除
+                const completedTasks = scheduledTasks.filter(st => st.isCompleted);
+                for (const st of completedTasks) {
+                  if (st.scheduleType === 'recurrence') {
+                    await deleteScheduledTask(st.id);
+                  } else {
+                    await deleteTask(st.taskId);
+                  }
                 }
               }}
             />
