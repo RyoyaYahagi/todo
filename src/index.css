@@ -1128,7 +1128,8 @@ select {
 }
 
 .recurrence-toggle {
-  display: flex;
+  display: inline-flex;
+  flex-direction: row;
   align-items: center;
   gap: 0.5rem;
   cursor: pointer;
@@ -1138,15 +1139,16 @@ select {
 .recurrence-toggle input[type="checkbox"] {
   width: 18px;
   height: 18px;
-  accent-color: var(--primary-color);
+  accent-color: #6b7280;
   margin: 0;
   flex-shrink: 0;
+  cursor: pointer;
 }
 
 .recurrence-toggle span {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  line-height: 18px;
+  line-height: 1;
 }
 
 .recurrence-options {
