@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSupabaseQuery } from './hooks/useSupabaseQuery';
 import { useAuth } from './contexts/AuthContext';
 import { useNotifications } from './hooks/useNotifications';
@@ -67,19 +67,33 @@ function App() {
     console.log('[handleReorderList] targetIndex:', targetIndex);
     if (targetIndex < 0 || targetIndex >= taskLists.length) return;
 
-    // 並び替えてcreatedAtを入れ替える（sortOrderがないのでcreatedAtで代用）
     const currentList = taskLists[currentIndex];
     const targetList = taskLists[targetIndex];
     console.log('[handleReorderList] 入れ替え:', currentList.name, '<->', targetList.name);
 
+    // 一意のタイムスタンプで入れ替え（1ms差をつける）
+    const now = Date.now();
+    const newCurrentCreatedAt = direction === 'up' ? now - 1 : now + 1;
+    const newTargetCreatedAt = direction === 'up' ? now + 1 : now - 1;
+
     try {
-      await updateTaskList({ ...currentList, createdAt: targetList.createdAt });
-      await updateTaskList({ ...targetList, createdAt: currentList.createdAt });
+      // 同時に更新（順次更新だと再取得で問題が起きる）
+      await Promise.all([
+        updateTaskList({ ...currentList, createdAt: newCurrentCreatedAt }),
+        updateTaskList({ ...targetList, createdAt: newTargetCreatedAt })
+      ]);
       console.log('[handleReorderList] 完了');
     } catch (err) {
       console.error('[handleReorderList] エラー:', err);
     }
   };
+
+  // taskListsが読み込まれたら先頭リストを選択
+  useEffect(() => {
+    if (taskLists.length > 0 && selectedListId === null) {
+      setSelectedListId(taskLists[0].id);
+    }
+  }, [taskLists, selectedListId]);
 
   const closeTutorial = () => {
     setIsTutorialOpen(false);

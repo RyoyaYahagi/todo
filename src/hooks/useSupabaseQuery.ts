@@ -646,7 +646,13 @@ export function useSupabaseQuery() {
     };
 
     const updateTaskList = async (list: TaskList) => {
+        // 楽観的更新（UIを即座に更新）
+        queryClient.setQueryData<TaskList[]>(QUERY_KEYS.taskLists, (old) =>
+            old?.map(l => l.id === list.id ? list : l).sort((a, b) => a.createdAt - b.createdAt) ?? []
+        );
+        // DBに保存
         await supabaseDb.updateTaskList(list);
+        // 再取得して整合性を保つ
         await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.taskLists });
     };
 
