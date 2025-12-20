@@ -297,6 +297,7 @@ function App() {
               scheduledTasks={scheduledTasks}
               taskLists={taskLists}
               selectedListId={selectedListId}
+              onSelectList={setSelectedListId}
               onToggleExclude={handleToggleExclude}
               onEditEvent={(event) => {
                 setEditingEvent({ ...event }); // コピーを作成

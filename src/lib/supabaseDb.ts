@@ -296,14 +296,14 @@ export const supabaseDb = {
         }
 
         // 新しいイベントをフィルタリング
-        // 既存イベント（カスタム以外）と同じ日付・タイプのものは更新対象から除外
+        // 既存イベント（カスタム以外）と同じ日付・タイプ・タイトルのものは更新対象から除外
         const existingNonCustom = existingEvents.filter(e => !customEventTypes.includes(e.event_type));
         const existingKeys = new Set(
-            existingNonCustom.map(e => `${e.start_time}_${e.event_type}`)
+            existingNonCustom.map(e => `${e.start_time}_${e.event_type}_${e.title}`)
         );
 
         const newEvents = events.filter(event => {
-            const key = `${event.start.toISOString()}_${event.eventType}`;
+            const key = `${event.start.toISOString()}_${event.eventType}_${event.title}`;
             // カスタムイベントは常に追加
             if (customEventTypes.includes(event.eventType)) return true;
             // 既存にない場合のみ追加

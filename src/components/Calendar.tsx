@@ -24,6 +24,8 @@ interface CalendarProps {
     taskLists?: TaskListType[];
     /** 選択中のリストID（フィルタ用） */
     selectedListId?: string | null;
+    /** リスト選択時のコールバック */
+    onSelectList?: (listId: string | null) => void;
     /** 日付の除外状態をトグルするコールバック（オプション） */
     onToggleExclude?: (date: Date) => void;
     /** イベントを編集するコールバック（オプション） */
@@ -44,7 +46,7 @@ interface CalendarProps {
  * イベントとスケジュール済みタスクを表示する。
  * 日付セルをタップすると、詳細モーダルが表示される。
  */
-export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, taskLists = [], selectedListId, onToggleExclude, onEditEvent, onAddEvent, onAddTask, onEditTask, onDeleteTask }) => {
+export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, taskLists = [], selectedListId, onSelectList, onToggleExclude, onEditEvent, onAddEvent, onAddTask, onEditTask, onDeleteTask }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     // 選択された日付のみを保持（詳細はevents/scheduledTasksから動的に取得）
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -226,6 +228,38 @@ export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, task
             <p className="calendar-hint" style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '0.5rem' }}>
                 日付をタップして詳細を表示
             </p>
+
+            {/* リストフィルタセレクタ */}
+            {taskLists.length > 1 && onSelectList && (
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    marginBottom: '0.75rem',
+                    flexWrap: 'wrap',
+                    padding: '0 0.5rem'
+                }}>
+                    {taskLists.map(list => (
+                        <button
+                            key={list.id}
+                            onClick={() => onSelectList(list.id)}
+                            style={{
+                                padding: '0.3rem 0.8rem',
+                                border: selectedListId === list.id ? `2px solid ${list.color}` : '1px solid var(--border-color)',
+                                borderRadius: '1rem',
+                                background: selectedListId === list.id ? list.color : 'var(--bg-secondary)',
+                                color: selectedListId === list.id ? 'white' : 'var(--text-primary)',
+                                fontSize: '0.8rem',
+                                cursor: 'pointer',
+                                fontWeight: selectedListId === list.id ? 'bold' : 'normal'
+                            }}
+                        >
+                            {list.name}
+                        </button>
+                    ))}
+                </div>
+            )}
+
             <div className="calendar-grid">
                 {['日', '月', '火', '水', '木', '金', '土'].map(d => (
                     <div key={d} className="weekday-header">{d}</div>
