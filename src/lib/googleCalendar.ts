@@ -48,12 +48,14 @@ export class GoogleCalendarClient {
      * @returns WorkEvent配列
      */
     async fetchEvents(timeMin?: string, timeMax?: string): Promise<WorkEvent[]> {
-        const now = new Date();
+        // 過去1年分のイベントを取得（履歴保持のため）
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
         const threeMonthsLater = new Date();
         threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
 
         const params = new URLSearchParams({
-            timeMin: timeMin || now.toISOString(),
+            timeMin: timeMin || oneYearAgo.toISOString(),
             timeMax: timeMax || threeMonthsLater.toISOString(),
             singleEvents: 'true',
             orderBy: 'startTime',

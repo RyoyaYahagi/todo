@@ -26,11 +26,40 @@ export interface RecurrenceRule {
     endDate?: number;        // 終了日 (timestamp)
 }
 
+/**
+ * タスクリスト
+ * 
+ * タスクをグループ化するためのリスト。
+ * ユーザーが自由に作成・命名できる。
+ */
+export interface TaskList {
+    id: string;
+    name: string;
+    color: string;       // 例: "#4CAF50"
+    isDefault: boolean;  // デフォルトリストかどうか（削除不可）
+    createdAt: number;
+}
+
+/**
+ * デフォルトのリストカラーパレット
+ */
+export const DEFAULT_LIST_COLORS = [
+    '#4CAF50', // 緑
+    '#2196F3', // 青
+    '#FF9800', // オレンジ
+    '#E91E63', // ピンク
+    '#9C27B0', // 紫
+    '#00BCD4', // シアン
+    '#FF5722', // 深オレンジ
+    '#607D8B', // グレー
+];
+
 export interface Task {
     id: string;
     title: string;
     createdAt: number;
     scheduleType: TaskScheduleType;
+    listId?: string;                  // 所属リストのID（未設定=デフォルトリスト）
     priority?: Priority;              // 優先度選択時のみ設定
     manualScheduledTime?: number;     // 時間選択時: 手動設定した日時
     recurrence?: RecurrenceRule;      // 繰り返し選択時: ルール

@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabaseDb } from '../lib/supabaseDb';
 import { reschedulePendingTasks } from '../lib/scheduler';
-import { DEFAULT_SETTINGS, type Task, type WorkEvent, type ScheduledTask, type AppSettings, type TaskScheduleType, type Priority, type RecurrenceRule } from '../types';
+import { DEFAULT_SETTINGS, type Task, type WorkEvent, type ScheduledTask, type AppSettings, type TaskScheduleType, type Priority, type RecurrenceRule, type TaskList } from '../types';
 import { useRef, useCallback } from 'react';
 
 /**
@@ -15,6 +15,7 @@ const QUERY_KEYS = {
     scheduledTasks: ['scheduledTasks'] as const,
     events: ['events'] as const,
     settings: ['settings'] as const,
+    taskLists: ['taskLists'] as const,
 };
 
 /**
@@ -42,6 +43,20 @@ export function useSupabaseQuery() {
     const tasksQuery = useQuery({
         queryKey: QUERY_KEYS.tasks,
         queryFn: () => supabaseDb.getAllTasks(),
+        enabled: isAuthReady,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    /**
+     * タスクリスト取得クエリ
+     */
+    const taskListsQuery = useQuery({
+        queryKey: QUERY_KEYS.taskLists,
+        queryFn: async () => {
+            // デフォルトリストを確保してから全リスト取得
+            await supabaseDb.getOrCreateDefaultList();
+            return supabaseDb.getAllTaskLists();
+        },
         enabled: isAuthReady,
         staleTime: 5 * 60 * 1000,
     });
@@ -84,8 +99,9 @@ export function useSupabaseQuery() {
     const scheduledTasks = scheduledTasksQuery.data ?? [];
     const events = eventsQuery.data ?? [];
     const settings = settingsQuery.data ?? DEFAULT_SETTINGS;
+    const taskLists = taskListsQuery.data ?? [];
     const loading = tasksQuery.isLoading || scheduledTasksQuery.isLoading ||
-        eventsQuery.isLoading || settingsQuery.isLoading;
+        eventsQuery.isLoading || settingsQuery.isLoading || taskListsQuery.isLoading;
 
     /**
      * 全データを再読み込み（キャッシュを無効化）
@@ -96,6 +112,7 @@ export function useSupabaseQuery() {
             queryClient.invalidateQueries({ queryKey: QUERY_KEYS.scheduledTasks }),
             queryClient.invalidateQueries({ queryKey: QUERY_KEYS.events }),
             queryClient.invalidateQueries({ queryKey: QUERY_KEYS.settings }),
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.taskLists }),
         ]);
     }, [queryClient]);
 
@@ -610,11 +627,33 @@ export function useSupabaseQuery() {
         await importDataMutation.mutateAsync(json);
     };
 
+    // =========================================
+    // タスクリスト操作
+    // =========================================
+
+    const addTaskList = async (list: TaskList) => {
+        await supabaseDb.addTaskList(list);
+        await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.taskLists });
+    };
+
+    const updateTaskList = async (list: TaskList) => {
+        await supabaseDb.updateTaskList(list);
+        await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.taskLists });
+    };
+
+    const deleteTaskList = async (id: string) => {
+        await supabaseDb.deleteTaskList(id);
+        await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.taskLists });
+        // 削除されたリストに属していたタスクはlist_idがnullになるのでタスクも再取得
+        await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tasks });
+    };
+
     return {
         tasks,
         scheduledTasks,
         events,
         settings,
+        taskLists,
         loading,
         refreshData,
         addTask,
@@ -626,6 +665,9 @@ export function useSupabaseQuery() {
         deleteScheduledTasks,
         updateSettings,
         exportData,
-        importData
+        importData,
+        addTaskList,
+        updateTaskList,
+        deleteTaskList
     };
 }
