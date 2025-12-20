@@ -213,7 +213,8 @@ export function useSupabaseQuery() {
                     priority: newTask.priority,
                     scheduleType: newTask.scheduleType,
                     manualScheduledTime: newTask.manualScheduledTime,
-                    recurrence: newTask.recurrence
+                    recurrence: newTask.recurrence,
+                    listId: newTask.listId
                 };
                 // ScheduledTask型に合わせた保存（内部でカラム除外などの処理はsupabaseDb側で行われる）
                 await supabaseDb.saveScheduledTasks([scheduledTask]);
@@ -257,7 +258,8 @@ export function useSupabaseQuery() {
                     priority,
                     scheduleType,
                     manualScheduledTime,
-                    recurrence
+                    recurrence,
+                    listId
                 };
                 queryClient.setQueryData<ScheduledTask[]>(QUERY_KEYS.scheduledTasks, (old) =>
                     old ? [...old, optimisticScheduledTask] : [optimisticScheduledTask]

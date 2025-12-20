@@ -295,6 +295,7 @@ function App() {
             <Calendar
               events={events}
               scheduledTasks={scheduledTasks}
+              taskLists={taskLists}
               onToggleExclude={handleToggleExclude}
               onEditEvent={(event) => {
                 setEditingEvent({ ...event }); // コピーを作成

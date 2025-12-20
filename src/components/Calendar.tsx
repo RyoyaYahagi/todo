@@ -14,12 +14,14 @@ import {
     startOfDay
 } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import type { WorkEvent, ScheduledTask } from '../types';
+import type { WorkEvent, ScheduledTask, TaskList as TaskListType } from '../types';
 import { isHoliday } from '../lib/scheduler';
 
 interface CalendarProps {
     events: WorkEvent[];
     scheduledTasks: ScheduledTask[];
+    /** タスクリスト一覧（色分け用） */
+    taskLists?: TaskListType[];
     /** 日付の除外状態をトグルするコールバック（オプション） */
     onToggleExclude?: (date: Date) => void;
     /** イベントを編集するコールバック（オプション） */
@@ -40,7 +42,7 @@ interface CalendarProps {
  * イベントとスケジュール済みタスクを表示する。
  * 日付セルをタップすると、詳細モーダルが表示される。
  */
-export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, onToggleExclude, onEditEvent, onAddEvent, onAddTask, onEditTask, onDeleteTask }) => {
+export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, taskLists = [], onToggleExclude, onEditEvent, onAddEvent, onAddTask, onEditTask, onDeleteTask }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     // 選択された日付のみを保持（詳細はevents/scheduledTasksから動的に取得）
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -156,18 +158,24 @@ export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, onTo
                     ))}
                 </div>
                 <div className="day-content">
-                    {dayTasks.slice(0, 1).map(task => (
-                        <div
-                            key={task.id}
-                            className={`mini-task ${task.isCompleted ? 'completed' : ''}`}
-                            style={{
-                                textDecoration: task.isCompleted ? 'line-through' : 'none',
-                                opacity: task.isCompleted ? 0.6 : 1
-                            }}
-                        >
-                            {task.title.length > 4 ? task.title.slice(0, 4) + '…' : task.title}
-                        </div>
-                    ))}
+                    {dayTasks.slice(0, 1).map(task => {
+                        const list = taskLists.find(l => l.id === task.listId);
+                        const listColor = list?.color || '#6B7280';
+                        return (
+                            <div
+                                key={task.id}
+                                className={`mini-task ${task.isCompleted ? 'completed' : ''}`}
+                                style={{
+                                    textDecoration: task.isCompleted ? 'line-through' : 'none',
+                                    opacity: task.isCompleted ? 0.6 : 1,
+                                    borderLeft: `3px solid ${listColor}`,
+                                    paddingLeft: '4px'
+                                }}
+                            >
+                                {task.title.length > 4 ? task.title.slice(0, 4) + '…' : task.title}
+                            </div>
+                        );
+                    })}
                     {dayTasks.length > 1 && (
                         <div className="mini-task more">+{dayTasks.length - 1}</div>
                     )}
