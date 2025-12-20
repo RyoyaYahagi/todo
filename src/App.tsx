@@ -356,6 +356,13 @@ function App() {
               onNavigateToCalendar={() => setActiveTab('calendar')}
               onShowTutorial={() => setIsTutorialOpen(true)}
               onShowHelp={() => setIsHelpOpen(true)}
+              taskLists={taskLists}
+              onAddList={addTaskList}
+              onEditList={(list) => {
+                setEditingList(list);
+                setIsListModalOpen(true);
+              }}
+              onDeleteList={deleteTaskList}
             />
           </div>
         )}
@@ -381,6 +388,8 @@ function App() {
           buttonLabel={editingTask ? "保存" : "追加"}
           calendarMode={calendarTaskDate !== null}
           baseDate={calendarTaskDate || undefined}
+          taskLists={taskLists}
+          selectedListId={selectedListId}
           onSave={async (title, scheduleType, options) => {
             if (editingTask) {
               // 更新
@@ -390,12 +399,16 @@ function App() {
                 scheduleType,
                 priority: options?.priority,
                 manualScheduledTime: options?.manualScheduledTime,
-                recurrence: options?.recurrence
+                recurrence: options?.recurrence,
+                listId: options?.listId
               };
               await updateTask(updatedTask);
             } else {
-              // 新規追加
-              await addTask(title, scheduleType, options);
+              // 新規追加（選択中リストに追加）
+              await addTask(title, scheduleType, {
+                ...options,
+                listId: options?.listId
+              });
             }
             closeTaskModal();
           }}

@@ -178,7 +178,7 @@ export function useSupabaseQuery() {
      * scheduleType === 'priority' の場合のみ自動スケジューリングを実行
      */
     const addTaskMutation = useMutation({
-        mutationFn: async ({ id, title, scheduleType, priority, manualScheduledTime, recurrence, createdAt }: {
+        mutationFn: async ({ id, title, scheduleType, priority, manualScheduledTime, recurrence, createdAt, listId }: {
             id: string;
             title: string;
             scheduleType: TaskScheduleType;
@@ -186,6 +186,7 @@ export function useSupabaseQuery() {
             manualScheduledTime?: number;
             recurrence?: RecurrenceRule;
             createdAt: number;
+            listId?: string;
         }) => {
             const newTask: Task = {
                 id,
@@ -194,7 +195,8 @@ export function useSupabaseQuery() {
                 createdAt,
                 priority,
                 manualScheduledTime,
-                recurrence
+                recurrence,
+                listId
             };
             await supabaseDb.addTask(newTask);
 
@@ -219,7 +221,7 @@ export function useSupabaseQuery() {
 
             return newTask;
         },
-        onMutate: async ({ id, title, scheduleType, priority, manualScheduledTime, recurrence, createdAt }) => {
+        onMutate: async ({ id, title, scheduleType, priority, manualScheduledTime, recurrence, createdAt, listId }) => {
             // キャンセル中のクエリをキャンセル
             await queryClient.cancelQueries({ queryKey: QUERY_KEYS.tasks });
             await queryClient.cancelQueries({ queryKey: QUERY_KEYS.scheduledTasks });
@@ -236,7 +238,8 @@ export function useSupabaseQuery() {
                 createdAt,
                 priority,
                 manualScheduledTime,
-                recurrence
+                recurrence,
+                listId
             };
             queryClient.setQueryData<Task[]>(QUERY_KEYS.tasks, (old) =>
                 old ? [...old, optimisticTask] : [optimisticTask]
@@ -578,6 +581,7 @@ export function useSupabaseQuery() {
             priority?: Priority;
             manualScheduledTime?: number;
             recurrence?: RecurrenceRule;
+            listId?: string;
         }
     ) => {
         // IDとタイムスタンプを事前生成して楽観的更新と一致させる
@@ -591,7 +595,8 @@ export function useSupabaseQuery() {
             createdAt,
             priority: options?.priority,
             manualScheduledTime: options?.manualScheduledTime,
-            recurrence: options?.recurrence
+            recurrence: options?.recurrence,
+            listId: options?.listId
         });
     };
 
