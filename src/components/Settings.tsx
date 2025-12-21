@@ -1,5 +1,6 @@
 import React, { useState, type ChangeEvent } from 'react';
-import type { AppSettings, WorkEvent } from '../types';
+import type { AppSettings, WorkEvent, TaskList as TaskListType } from '../types';
+import { DEFAULT_LIST_COLORS } from '../types';
 import { IcsParser } from '../lib/icsParser';
 import { GoogleCalendarClient } from '../lib/googleCalendar';
 import { sendDiscordNotification } from '../lib/discordWebhook';
@@ -15,6 +16,12 @@ interface SettingsProps {
     onNavigateToCalendar?: () => void;
     onShowTutorial?: () => void;
     onShowHelp?: () => void;
+    // リスト管理
+    taskLists?: TaskListType[];
+    onAddList?: (list: TaskListType) => void;
+    onEditList?: (list: TaskListType) => void;
+    onDeleteList?: (id: string) => void;
+    onReorderList?: (listId: string, direction: 'up' | 'down') => void;
 }
 
 export const Settings: React.FC<SettingsProps> = ({
@@ -25,7 +32,12 @@ export const Settings: React.FC<SettingsProps> = ({
     onImport,
     onNavigateToCalendar,
     onShowTutorial,
-    onShowHelp
+    onShowHelp,
+    taskLists = [],
+    onAddList,
+    onEditList,
+    onDeleteList,
+    onReorderList
 }) => {
     const { providerToken, signInWithGoogle } = useAuth();
     const [localSettings, setLocalSettings] = useState<AppSettings>(settings);
@@ -261,6 +273,162 @@ export const Settings: React.FC<SettingsProps> = ({
         <div className="settings-container">
             {/* テーマ設定 */}
             <ThemeSelector />
+
+            {/* リスト管理セクション */}
+            {onAddList && (
+                <section className="settings-section">
+                    <h3>📋 タスクリスト管理</h3>
+                    <p className="description">
+                        タスクをリストに分けて整理できます。
+                    </p>
+
+                    {/* リスト一覧 */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
+                        {taskLists.map(list => (
+                            <div
+                                key={list.id}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.75rem',
+                                    padding: '0.75rem',
+                                    borderRadius: '8px',
+                                    backgroundColor: 'var(--bg-tertiary)',
+                                    borderLeft: `4px solid ${list.color}`
+                                }}
+                            >
+                                <span style={{ flex: 1, fontWeight: list.isDefault ? 'bold' : 'normal' }}>
+                                    {list.name}
+                                    {list.isDefault && <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginLeft: '0.5rem' }}>(デフォルト)</span>}
+                                </span>
+                                {/* 並び替えボタン */}
+                                {onReorderList && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                console.log('[Settings] ▲ clicked for:', list.id);
+                                                onReorderList(list.id, 'up');
+                                            }}
+                                            disabled={taskLists.indexOf(list) === 0}
+                                            style={{
+                                                padding: '0.2rem 0.4rem',
+                                                fontSize: '0.8rem',
+                                                border: '1px solid var(--border-color)',
+                                                borderRadius: '4px',
+                                                background: 'var(--bg-secondary)',
+                                                cursor: taskLists.indexOf(list) === 0 ? 'not-allowed' : 'pointer',
+                                                opacity: taskLists.indexOf(list) === 0 ? 0.4 : 1
+                                            }}
+                                        >
+                                            ▲
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                console.log('[Settings] ▼ clicked for:', list.id);
+                                                onReorderList(list.id, 'down');
+                                            }}
+                                            disabled={taskLists.indexOf(list) === taskLists.length - 1}
+                                            style={{
+                                                padding: '0.2rem 0.4rem',
+                                                fontSize: '0.8rem',
+                                                border: '1px solid var(--border-color)',
+                                                borderRadius: '4px',
+                                                background: 'var(--bg-secondary)',
+                                                cursor: taskLists.indexOf(list) === taskLists.length - 1 ? 'not-allowed' : 'pointer',
+                                                opacity: taskLists.indexOf(list) === taskLists.length - 1 ? 0.4 : 1
+                                            }}
+                                        >
+                                            ▼
+                                        </button>
+                                    </>
+                                )}
+                                <button
+                                    onClick={() => onEditList?.(list)}
+                                    className="btn-secondary"
+                                    style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}
+                                >
+                                    編集
+                                </button>
+                                {!list.isDefault && onDeleteList && (
+                                    <button
+                                        onClick={() => {
+                                            if (window.confirm(`リスト「${list.name}」を削除しますか？\nこのリストに属するタスクはデフォルトリストに移動します。`)) {
+                                                onDeleteList(list.id);
+                                            }
+                                        }}
+                                        style={{
+                                            padding: '0.3rem 0.6rem',
+                                            fontSize: '0.8rem',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            backgroundColor: '#ff3b30',
+                                            color: 'white',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        削除
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* 新規リスト追加フォーム */}
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <input
+                            type="text"
+                            id="new-list-name"
+                            placeholder="新しいリスト名..."
+                            style={{
+                                flex: 1,
+                                padding: '0.6rem',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                backgroundColor: 'var(--bg-secondary)',
+                                color: 'var(--text-primary)'
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    const input = e.target as HTMLInputElement;
+                                    if (input.value.trim()) {
+                                        const newList: TaskListType = {
+                                            id: crypto.randomUUID(),
+                                            name: input.value.trim(),
+                                            color: DEFAULT_LIST_COLORS[taskLists.length % DEFAULT_LIST_COLORS.length],
+                                            isDefault: false,
+                                            createdAt: Date.now()
+                                        };
+                                        onAddList(newList);
+                                        input.value = '';
+                                    }
+                                }
+                            }}
+                        />
+                        <button
+                            className="btn-primary"
+                            style={{ padding: '0.6rem 1rem' }}
+                            onClick={() => {
+                                const input = document.getElementById('new-list-name') as HTMLInputElement;
+                                if (input?.value.trim()) {
+                                    const newList: TaskListType = {
+                                        id: crypto.randomUUID(),
+                                        name: input.value.trim(),
+                                        color: DEFAULT_LIST_COLORS[taskLists.length % DEFAULT_LIST_COLORS.length],
+                                        isDefault: false,
+                                        createdAt: Date.now()
+                                    };
+                                    onAddList(newList);
+                                    input.value = '';
+                                }
+                            }}
+                        >
+                            + 追加
+                        </button>
+                    </div>
+                </section>
+            )}
 
             {/* チュートリアル・ヘルプ */}
             {(onShowTutorial || onShowHelp) && (

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Priority, TaskScheduleType, RecurrenceType, RecurrenceRule, Task } from '../types';
+import type { Priority, TaskScheduleType, RecurrenceType, RecurrenceRule, Task, TaskList as TaskListType } from '../types';
 import { format, getDay } from 'date-fns';
 
 interface TaskFormProps {
@@ -10,6 +10,7 @@ interface TaskFormProps {
             priority?: Priority;
             manualScheduledTime?: number;
             recurrence?: RecurrenceRule;
+            listId?: string;
         }
     ) => void;
     onCancel?: () => void;
@@ -20,6 +21,10 @@ interface TaskFormProps {
     calendarMode?: boolean;
     /** 基準となる日付（カレンダーからの追加時に使用） */
     baseDate?: Date;
+    /** タスクリスト一覧 */
+    taskLists?: TaskListType[];
+    /** 現在選択中のリストID（新規追加時のデフォルト） */
+    selectedListId?: string | null;
 }
 
 type ScheduleMode = 'auto' | 'manual' | 'none';
@@ -44,7 +49,9 @@ export const TaskForm: React.FC<TaskFormProps> = ({
     maxPriority = 5,
     buttonLabel = '追加',
     calendarMode = false,
-    baseDate
+    baseDate,
+    taskLists = [],
+    selectedListId
 }) => {
     // 初期値を計算（initialDataまたはbaseDateから）
     const getInitialDate = () => {
@@ -100,6 +107,12 @@ export const TaskForm: React.FC<TaskFormProps> = ({
     // 週繰り返し用: 選択された曜日（0=日曜, 1=月曜, ...）
     const [selectedDays, setSelectedDays] = useState<number[]>(getInitialDays);
 
+    // リスト選択（編集時は既存、新規時は選択中リストをデフォルト）
+    const defaultList = taskLists.find(l => l.isDefault);
+    const [listId, setListId] = useState<string | undefined>(
+        initialData?.listId || selectedListId || defaultList?.id
+    );
+
     /**
      * 曜日選択のトグル
      */
@@ -127,19 +140,21 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                 }
                 onSave(title, 'recurrence', {
                     manualScheduledTime: dateTime.getTime(),
-                    recurrence
+                    recurrence,
+                    listId
                 });
             } else {
                 onSave(title, 'time', {
-                    manualScheduledTime: dateTime.getTime()
+                    manualScheduledTime: dateTime.getTime(),
+                    listId
                 });
             }
         } else if (mode === 'auto') {
             // 自動スケジュール
-            onSave(title, 'priority', { priority });
+            onSave(title, 'priority', { priority, listId });
         } else {
             // 指定なし
-            onSave(title, 'none', {});
+            onSave(title, 'none', { listId });
         }
 
         // フォームリセット（編集時は親コンポーネントが閉じる前提だが、追加時のためにリセット）
@@ -171,6 +186,34 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                     className="task-title-input"
                 />
             </div>
+
+            {/* リスト選択（リストがある場合のみ表示） */}
+            {taskLists.length > 0 && (
+                <div className="form-group">
+                    <label htmlFor="task-list">リスト</label>
+                    <select
+                        id="task-list"
+                        value={listId || ''}
+                        onChange={(e) => setListId(e.target.value || undefined)}
+                        className="task-list-select"
+                        style={{
+                            width: '100%',
+                            padding: '0.8rem',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '8px',
+                            fontSize: '1rem',
+                            backgroundColor: 'var(--bg-secondary)',
+                            color: 'var(--text-primary)'
+                        }}
+                    >
+                        {taskLists.map(list => (
+                            <option key={list.id} value={list.id}>
+                                {list.name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
 
             {/* モード選択タブ（calendarModeでない場合のみ表示） */}
             {!calendarMode && (
@@ -208,6 +251,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
 
             {/* タブコンテンツ */}
             <div className="tab-content">
+                {/* 自動モード */}
                 {mode === 'auto' && (
                     <div className="form-group">
                         <label>優先度 (自動スケジュール)</label>
@@ -229,6 +273,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                     </div>
                 )}
 
+                {/* 手動モード */}
                 {mode === 'manual' && (
                     <>
                         <div className="form-group">

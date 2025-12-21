@@ -14,12 +14,18 @@ import {
     startOfDay
 } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import type { WorkEvent, ScheduledTask } from '../types';
+import type { WorkEvent, ScheduledTask, TaskList as TaskListType } from '../types';
 import { isHoliday } from '../lib/scheduler';
 
 interface CalendarProps {
     events: WorkEvent[];
     scheduledTasks: ScheduledTask[];
+    /** タスクリスト一覧（色分け用） */
+    taskLists?: TaskListType[];
+    /** 選択中のリストID（フィルタ用） */
+    selectedListId?: string | null;
+    /** リスト選択時のコールバック */
+    onSelectList?: (listId: string | null) => void;
     /** 日付の除外状態をトグルするコールバック（オプション） */
     onToggleExclude?: (date: Date) => void;
     /** イベントを編集するコールバック（オプション） */
@@ -40,7 +46,7 @@ interface CalendarProps {
  * イベントとスケジュール済みタスクを表示する。
  * 日付セルをタップすると、詳細モーダルが表示される。
  */
-export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, onToggleExclude, onEditEvent, onAddEvent, onAddTask, onEditTask, onDeleteTask }) => {
+export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, taskLists = [], selectedListId, onSelectList, onToggleExclude, onEditEvent, onAddEvent, onAddTask, onEditTask, onDeleteTask }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     // 選択された日付のみを保持（詳細はevents/scheduledTasksから動的に取得）
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -55,6 +61,23 @@ export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, onTo
         end: endDate,
     });
 
+    // リストフィルタリング
+    const filteredScheduledTasks = useMemo(() => {
+        if (selectedListId === null || selectedListId === undefined) {
+            return scheduledTasks;
+        }
+        const defaultList = taskLists.find(l => l.isDefault);
+        const isSelectingDefault = selectedListId === defaultList?.id;
+
+        // デフォルトリスト（「すべて」）選択時は全タスクを表示
+        if (isSelectingDefault) {
+            return scheduledTasks;
+        }
+
+        // 他のリスト選択時: そのリストIDを持つタスクのみ
+        return scheduledTasks.filter(task => task.listId === selectedListId);
+    }, [scheduledTasks, selectedListId, taskLists]);
+
     const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
     const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
 
@@ -66,7 +89,7 @@ export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, onTo
         if (!selectedDate) return null;
 
         const dayEvents = events.filter(e => isSameDay(e.start, selectedDate));
-        const dayTasks = scheduledTasks.filter(t => isSameDay(new Date(t.scheduledTime), selectedDate));
+        const dayTasks = filteredScheduledTasks.filter(t => isSameDay(new Date(t.scheduledTime), selectedDate));
         const isExcluded = dayEvents.some(e => e.eventType === 'スケジュール除外');
         const isForceIncluded = dayEvents.some(e => e.eventType === 'スケジュール対象');
         const isDayHoliday = isHoliday(selectedDate, events);
@@ -118,7 +141,7 @@ export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, onTo
 
     const getDayContent = (day: Date) => {
         const dayEvents = events.filter(e => isSameDay(e.start, day));
-        const dayTasks = scheduledTasks.filter(t => isSameDay(new Date(t.scheduledTime), day));
+        const dayTasks = filteredScheduledTasks.filter(t => isSameDay(new Date(t.scheduledTime), day));
         const isDayHoliday = isHoliday(day, events);
 
         const isYasumi = dayEvents.some(e => e.eventType === '休み');
@@ -156,18 +179,25 @@ export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, onTo
                     ))}
                 </div>
                 <div className="day-content">
-                    {dayTasks.slice(0, 1).map(task => (
-                        <div
-                            key={task.id}
-                            className={`mini-task ${task.isCompleted ? 'completed' : ''}`}
-                            style={{
-                                textDecoration: task.isCompleted ? 'line-through' : 'none',
-                                opacity: task.isCompleted ? 0.6 : 1
-                            }}
-                        >
-                            {task.title.length > 4 ? task.title.slice(0, 4) + '…' : task.title}
-                        </div>
-                    ))}
+                    {dayTasks.slice(0, 1).map(task => {
+                        const list = taskLists.find(l => l.id === task.listId);
+                        const listColor = list?.color || '#6B7280';
+                        return (
+                            <div
+                                key={task.id}
+                                className={`mini-task ${task.isCompleted ? 'completed' : ''}`}
+                                style={{
+                                    textDecoration: task.isCompleted ? 'line-through' : 'none',
+                                    opacity: task.isCompleted ? 0.6 : 1,
+                                    borderLeft: `3px solid ${listColor}`,
+                                    paddingLeft: '4px',
+                                    color: listColor
+                                }}
+                            >
+                                {task.title.length > 4 ? task.title.slice(0, 4) + '…' : task.title}
+                            </div>
+                        );
+                    })}
                     {dayTasks.length > 1 && (
                         <div className="mini-task more">+{dayTasks.length - 1}</div>
                     )}
@@ -198,6 +228,38 @@ export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, onTo
             <p className="calendar-hint" style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '0.5rem' }}>
                 日付をタップして詳細を表示
             </p>
+
+            {/* リストフィルタセレクタ */}
+            {taskLists.length > 1 && onSelectList && (
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    marginBottom: '0.75rem',
+                    flexWrap: 'wrap',
+                    padding: '0 0.5rem'
+                }}>
+                    {taskLists.map(list => (
+                        <button
+                            key={list.id}
+                            onClick={() => onSelectList(list.id)}
+                            style={{
+                                padding: '0.3rem 0.8rem',
+                                border: selectedListId === list.id ? `2px solid ${list.color}` : '1px solid var(--border-color)',
+                                borderRadius: '1rem',
+                                background: selectedListId === list.id ? list.color : 'var(--bg-secondary)',
+                                color: selectedListId === list.id ? 'white' : 'var(--text-primary)',
+                                fontSize: '0.8rem',
+                                cursor: 'pointer',
+                                fontWeight: selectedListId === list.id ? 'bold' : 'normal'
+                            }}
+                        >
+                            {list.name}
+                        </button>
+                    ))}
+                </div>
+            )}
+
             <div className="calendar-grid">
                 {['日', '月', '火', '水', '木', '金', '土'].map(d => (
                     <div key={d} className="weekday-header">{d}</div>
@@ -334,56 +396,62 @@ export const Calendar: React.FC<CalendarProps> = ({ events, scheduledTasks, onTo
                                 <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>タスクなし</p>
                             ) : (
                                 <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                                    {selectedDayDetails.tasks.map(task => (
-                                        <li
-                                            key={task.id}
-                                            style={{
-                                                padding: '0.5rem 0',
-                                                borderBottom: '1px solid var(--border-color)',
-                                                opacity: task.isCompleted ? 0.6 : 1,
-                                                cursor: onEditTask || onDeleteTask ? 'pointer' : 'default'
-                                            }}
-                                            onClick={() => onEditTask && onEditTask(task)}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <span style={{
-                                                    backgroundColor: task.priority ? `hsl(${(5 - task.priority) * 30}, 70%, 50%)` : '#ccc',
-                                                    color: 'white',
-                                                    padding: '2px 6px',
-                                                    borderRadius: '4px',
-                                                    fontSize: '0.7rem'
-                                                }}>
-                                                    {task.priority ? `P${task.priority}` : '-'}
-                                                </span>
-                                                <span style={{ flex: 1, textDecoration: task.isCompleted ? 'line-through' : 'none' }}>{task.title}</span>
-                                                {onDeleteTask && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            if (window.confirm(`「${task.title}」を削除しますか？`)) {
-                                                                onDeleteTask(task.id);
-                                                            }
-                                                        }}
-                                                        style={{
-                                                            background: 'none',
-                                                            border: 'none',
-                                                            color: '#ff3b30',
-                                                            cursor: 'pointer',
-                                                            padding: '0.25rem',
-                                                            fontSize: '1rem'
-                                                        }}
-                                                    >
-                                                        🗑️
-                                                    </button>
-                                                )}
-                                            </div>
-                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                                                {format(new Date(task.scheduledTime), 'HH:mm')}
-                                                {task.isCompleted && ' ✓ 完了'}
-                                                {(onEditTask || onDeleteTask) && <span style={{ marginLeft: '0.5rem', color: 'var(--text-muted)' }}>タップで編集</span>}
-                                            </div>
-                                        </li>
-                                    ))}
+                                    {selectedDayDetails.tasks.map(task => {
+                                        const list = taskLists.find(l => l.id === task.listId);
+                                        const listColor = list?.color || '#6B7280';
+                                        return (
+                                            <li
+                                                key={task.id}
+                                                style={{
+                                                    padding: '0.5rem 0',
+                                                    paddingLeft: '0.5rem',
+                                                    borderBottom: '1px solid var(--border-color)',
+                                                    borderLeft: `4px solid ${listColor}`,
+                                                    opacity: task.isCompleted ? 0.6 : 1,
+                                                    cursor: onEditTask || onDeleteTask ? 'pointer' : 'default'
+                                                }}
+                                                onClick={() => onEditTask && onEditTask(task)}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <span style={{
+                                                        backgroundColor: task.priority ? `hsl(${(5 - task.priority) * 30}, 70%, 50%)` : '#ccc',
+                                                        color: 'white',
+                                                        padding: '2px 6px',
+                                                        borderRadius: '4px',
+                                                        fontSize: '0.7rem'
+                                                    }}>
+                                                        {task.priority ? `P${task.priority}` : '-'}
+                                                    </span>
+                                                    <span style={{ flex: 1, textDecoration: task.isCompleted ? 'line-through' : 'none' }}>{task.title}</span>
+                                                    {onDeleteTask && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (window.confirm(`「${task.title}」を削除しますか？`)) {
+                                                                    onDeleteTask(task.id);
+                                                                }
+                                                            }}
+                                                            style={{
+                                                                background: 'none',
+                                                                border: 'none',
+                                                                color: '#ff3b30',
+                                                                cursor: 'pointer',
+                                                                padding: '0.25rem',
+                                                                fontSize: '1rem'
+                                                            }}
+                                                        >
+                                                            🗑️
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                                                    {format(new Date(task.scheduledTime), 'HH:mm')}
+                                                    {task.isCompleted && ' ✓ 完了'}
+                                                    {(onEditTask || onDeleteTask) && <span style={{ marginLeft: '0.5rem', color: 'var(--text-muted)' }}>タップで編集</span>}
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
                                 </ul>
                             )}
                             {/* タスク追加ボタン */}

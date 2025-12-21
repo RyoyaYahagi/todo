@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSupabaseQuery } from './hooks/useSupabaseQuery';
 import { useAuth } from './contexts/AuthContext';
 import { useNotifications } from './hooks/useNotifications';
@@ -10,7 +10,8 @@ import { Login } from './components/Login';
 
 import { Modal } from './components/Modal';
 import { Tutorial } from './components/Tutorial';
-import type { Task, WorkEvent, EventType } from './types';
+import { ListEditModal } from './components/ListEditModal';
+import type { Task, WorkEvent, EventType, TaskList as TaskListType } from './types';
 import { getNextOccurrence } from './lib/scheduler';
 import { isSameDay, startOfDay } from 'date-fns';
 
@@ -22,6 +23,7 @@ function App() {
     scheduledTasks,
     events,
     settings,
+    taskLists,
     loading,
     addTask,
     updateTask,
@@ -31,7 +33,10 @@ function App() {
     saveEvents,
     saveScheduledTasks,
     exportData,
-    importData
+    importData,
+    addTaskList,
+    updateTaskList,
+    deleteTaskList
   } = useSupabaseQuery();
 
   const [activeTab, setActiveTab] = useState<'tasks' | 'calendar' | 'settings'>('tasks');
@@ -47,6 +52,49 @@ function App() {
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<WorkEvent | null>(null); // 編集中のイベント
   const [originalEvent, setOriginalEvent] = useState<WorkEvent | null>(null); // 編集前のオリジナルイベント
+  const [selectedListId, setSelectedListId] = useState<string | null>(null); // 選択中のリスト(null=すべて)
+  const [isListModalOpen, setIsListModalOpen] = useState(false);
+  const [editingList, setEditingList] = useState<TaskListType | null>(null);
+
+  // リストの並び替え処理
+  const handleReorderList = async (listId: string, direction: 'up' | 'down') => {
+    console.log('[handleReorderList] 開始:', listId, direction);
+    const currentIndex = taskLists.findIndex(l => l.id === listId);
+    console.log('[handleReorderList] currentIndex:', currentIndex);
+    if (currentIndex === -1) return;
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    console.log('[handleReorderList] targetIndex:', targetIndex);
+    if (targetIndex < 0 || targetIndex >= taskLists.length) return;
+
+    const currentList = taskLists[currentIndex];
+    const targetList = taskLists[targetIndex];
+    console.log('[handleReorderList] 入れ替え:', currentList.name, '<->', targetList.name);
+    console.log('[handleReorderList] 元のcreatedAt:', currentList.createdAt, targetList.createdAt);
+
+    // createdAtを単純に入れ替える
+    const tempCreatedAt = currentList.createdAt;
+
+    try {
+      // 同時に更新（順次更新だと再取得で問題が起きる）
+      await Promise.all([
+        updateTaskList({ ...currentList, createdAt: targetList.createdAt }),
+        updateTaskList({ ...targetList, createdAt: tempCreatedAt })
+      ]);
+      console.log('[handleReorderList] 完了');
+    } catch (err) {
+      console.error('[handleReorderList] エラー:', err);
+    }
+  };
+
+  // taskListsが読み込まれたら先頭リストを選択（初回のみ）
+  const [hasInitializedList, setHasInitializedList] = useState(false);
+  useEffect(() => {
+    if (taskLists.length > 0 && !hasInitializedList) {
+      setSelectedListId(taskLists[0].id);
+      setHasInitializedList(true);
+    }
+  }, [taskLists, hasInitializedList]);
 
   const closeTutorial = () => {
     setIsTutorialOpen(false);
@@ -80,7 +128,8 @@ function App() {
           recurrence: target.recurrence, // 次回分も繰り返し設定を引き継ぐ
           scheduledTime: nextTime,
           isCompleted: false,
-          recurrenceSourceId: target.id
+          recurrenceSourceId: target.id,
+          listId: target.listId // リストIDを引き継ぐ
         };
         tasksToSave.push(nextTask);
       }
@@ -241,6 +290,17 @@ function App() {
             <TaskList
               tasks={tasks}
               scheduledTasks={scheduledTasks}
+              taskLists={taskLists}
+              selectedListId={selectedListId}
+              onSelectList={setSelectedListId}
+              onAddList={() => {
+                setEditingList(null);
+                setIsListModalOpen(true);
+              }}
+              onEditList={(list) => {
+                setEditingList(list);
+                setIsListModalOpen(true);
+              }}
               onDelete={async (id, isRecurringInstance) => {
                 if (isRecurringInstance) {
                   // 繰り返しタスクのインスタンス: ScheduledTaskのみ削除
@@ -276,6 +336,9 @@ function App() {
             <Calendar
               events={events}
               scheduledTasks={scheduledTasks}
+              taskLists={taskLists}
+              selectedListId={selectedListId}
+              onSelectList={setSelectedListId}
               onToggleExclude={handleToggleExclude}
               onEditEvent={(event) => {
                 setEditingEvent({ ...event }); // コピーを作成
@@ -337,6 +400,14 @@ function App() {
               onNavigateToCalendar={() => setActiveTab('calendar')}
               onShowTutorial={() => setIsTutorialOpen(true)}
               onShowHelp={() => setIsHelpOpen(true)}
+              taskLists={taskLists}
+              onAddList={addTaskList}
+              onEditList={(list) => {
+                setEditingList(list);
+                setIsListModalOpen(true);
+              }}
+              onDeleteList={deleteTaskList}
+              onReorderList={handleReorderList}
             />
           </div>
         )}
@@ -362,6 +433,8 @@ function App() {
           buttonLabel={editingTask ? "保存" : "追加"}
           calendarMode={calendarTaskDate !== null}
           baseDate={calendarTaskDate || undefined}
+          taskLists={taskLists}
+          selectedListId={selectedListId}
           onSave={async (title, scheduleType, options) => {
             if (editingTask) {
               // 更新
@@ -371,12 +444,16 @@ function App() {
                 scheduleType,
                 priority: options?.priority,
                 manualScheduledTime: options?.manualScheduledTime,
-                recurrence: options?.recurrence
+                recurrence: options?.recurrence,
+                listId: options?.listId
               };
               await updateTask(updatedTask);
             } else {
-              // 新規追加
-              await addTask(title, scheduleType, options);
+              // 新規追加（選択中リストに追加）
+              await addTask(title, scheduleType, {
+                ...options,
+                listId: options?.listId
+              });
             }
             closeTaskModal();
           }}
@@ -576,6 +653,24 @@ function App() {
 
       {/* Help Modal */}
       <Tutorial isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} showHelpOnly />
+
+      {/* List Edit Modal */}
+      <ListEditModal
+        isOpen={isListModalOpen}
+        onClose={() => {
+          setIsListModalOpen(false);
+          setEditingList(null);
+        }}
+        list={editingList}
+        onSave={async (list) => {
+          if (editingList) {
+            await updateTaskList(list);
+          } else {
+            await addTaskList(list);
+          }
+        }}
+        onDelete={deleteTaskList}
+      />
 
       <nav className="bottom-nav">
         <button
