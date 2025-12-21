@@ -113,17 +113,6 @@ export const TaskForm: React.FC<TaskFormProps> = ({
         initialData?.listId || selectedListId || defaultList?.id
     );
 
-    // 選択中のリストがデフォルトかどうか（自動スケジュールはデフォルトリストのみ）
-    const selectedList = taskLists.find(l => l.id === listId);
-    const isDefaultList = selectedList?.isDefault ?? true;
-
-    // 非デフォルトリスト選択時に自動モードなら手動に強制切替
-    React.useEffect(() => {
-        if (!isDefaultList && mode === 'auto') {
-            setMode('manual');
-        }
-    }, [isDefaultList, mode]);
-
     /**
      * 曜日選択のトグル
      */
@@ -139,10 +128,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
         e.preventDefault();
         if (!title.trim()) return;
 
-        // デフォルトリスト以外で自動モードの場合は手動モードとして処理
-        const effectiveMode = (!isDefaultList && mode === 'auto') ? 'manual' : mode;
-
-        if (effectiveMode === 'manual') {
+        if (mode === 'manual') {
             // 手動スケジュール
             const dateTime = new Date(`${selectedDate}T${selectedTime}:00`);
             if (isRecurring) {
@@ -163,8 +149,8 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                     listId
                 });
             }
-        } else if (effectiveMode === 'auto') {
-            // 自動スケジュール（デフォルトリストのみ）
+        } else if (mode === 'auto') {
+            // 自動スケジュール
             onSave(title, 'priority', { priority, listId });
         } else {
             // 指定なし
@@ -234,11 +220,6 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                             </option>
                         ))}
                     </select>
-                    {!isDefaultList && (
-                        <p className="hint-text" style={{ marginTop: '0.3rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                            ※ 自動スケジュールはデフォルトリストのみ対応
-                        </p>
-                    )}
                 </div>
             )}
 
@@ -248,9 +229,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                     <button
                         type="button"
                         className={`tab-button ${mode === 'auto' ? 'active' : ''}`}
-                        onClick={() => isDefaultList && setMode('auto')}
-                        disabled={!isDefaultList}
-                        style={{ opacity: isDefaultList ? 1 : 0.5, cursor: isDefaultList ? 'pointer' : 'not-allowed' }}
+                        onClick={() => setMode('auto')}
                     >
                         ⭐ 自動
                     </button>
@@ -280,8 +259,8 @@ export const TaskForm: React.FC<TaskFormProps> = ({
 
             {/* タブコンテンツ */}
             <div className="tab-content">
-                {/* 自動モード（デフォルトリスト以外では手動として扱う） */}
-                {mode === 'auto' && isDefaultList && (
+                {/* 自動モード */}
+                {mode === 'auto' && (
                     <div className="form-group">
                         <label>優先度 (自動スケジュール)</label>
                         <p className="hint-text">休日の空き時間に自動で割り当てられます</p>
@@ -302,8 +281,8 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                     </div>
                 )}
 
-                {/* 手動モード（または非デフォルトリストで自動が選ばれている場合） */}
-                {(mode === 'manual' || (mode === 'auto' && !isDefaultList)) && (
+                {/* 手動モード */}
+                {mode === 'manual' && (
                     <>
                         <div className="form-group">
                             <label>日時を指定</label>
