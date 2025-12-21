@@ -45,7 +45,7 @@ export const TaskList: React.FC<TaskListProps> = ({
         if (isToday(date)) return <span className="date-text today">今日 {format(date, 'HH:mm')}</span>;
         if (isTomorrow(date)) return <span className="date-text">明日 {format(date, 'HH:mm')}</span>;
         if (isBefore(date, startOfDay(new Date()))) return <span className="date-text overdue">{format(date, 'M月d日')} (期限切れ)</span>;
-        return <span className="date-text">{format(date, 'M月d日(eee)', { locale: ja })}</span>;
+        return <span className="date-text">{format(date, 'M月d日(eee) HH:mm', { locale: ja })}</span>;
     };
 
     const todayDate = startOfDay(new Date());

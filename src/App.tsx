@@ -128,7 +128,8 @@ function App() {
           recurrence: target.recurrence, // 次回分も繰り返し設定を引き継ぐ
           scheduledTime: nextTime,
           isCompleted: false,
-          recurrenceSourceId: target.id
+          recurrenceSourceId: target.id,
+          listId: target.listId // リストIDを引き継ぐ
         };
         tasksToSave.push(nextTask);
       }
