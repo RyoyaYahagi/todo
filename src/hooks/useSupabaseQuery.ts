@@ -439,10 +439,10 @@ export function useSupabaseQuery() {
                 queryClient.setQueryData(QUERY_KEYS.events, context.previousEvents);
             }
         },
-        onSuccess: (newEvents) => {
-            console.log('[saveEventsMutation] onSuccess:', newEvents.length, '件で確定');
-            // 成功後も明示的にキャッシュを設定（他の処理による上書き防止）
-            queryClient.setQueryData<WorkEvent[]>(QUERY_KEYS.events, newEvents);
+        onSuccess: async () => {
+            console.log('[saveEventsMutation] onSuccess: DBから再取得');
+            // DBはマージ方式なので、正しいデータを再取得する
+            await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.events });
             // 自動スケジュールをバックグラウンドで実行
             runAutoScheduleBackground();
         },
