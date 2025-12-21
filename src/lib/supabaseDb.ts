@@ -298,16 +298,26 @@ export const supabaseDb = {
         // 新しいイベントをフィルタリング
         // 既存イベント（カスタム以外）と同じ日付・タイプ・タイトルのものは更新対象から除外
         const existingNonCustom = existingEvents.filter(e => !customEventTypes.includes(e.event_type));
+
+        // 日付文字列を正規化してキーを作成（形式の違いを吸収）
+        const normalizeDate = (dateStr: string) => new Date(dateStr).toISOString();
+
         const existingKeys = new Set(
-            existingNonCustom.map(e => `${e.start_time}_${e.event_type}_${e.title}`)
+            existingNonCustom.map(e => `${normalizeDate(e.start_time)}_${e.event_type}_${e.title}`)
         );
+
+        console.log('[supabaseDb.saveEvents] 既存キー例:', [...existingKeys].slice(0, 3));
 
         const newEvents = events.filter(event => {
             const key = `${event.start.toISOString()}_${event.eventType}_${event.title}`;
             // カスタムイベントは常に追加
             if (customEventTypes.includes(event.eventType)) return true;
             // 既存にない場合のみ追加
-            return !existingKeys.has(key);
+            const exists = existingKeys.has(key);
+            if (!exists) {
+                console.log('[supabaseDb.saveEvents] 新規イベント:', key);
+            }
+            return !exists;
         });
 
         // 新しいイベントを挿入
@@ -367,12 +377,13 @@ export const supabaseDb = {
         if (fetchError) throw fetchError;
         if (!events || events.length === 0) return 0;
 
-        // 重複を検出
+        // 重複を検出（日付を正規化して比較）
+        const normalizeDate = (dateStr: string) => new Date(dateStr).toISOString();
         const seen = new Map<string, string>(); // key -> first id
         const duplicateIds: string[] = [];
 
         for (const event of events) {
-            const key = `${event.start_time}_${event.event_type}_${event.title}`;
+            const key = `${normalizeDate(event.start_time)}_${event.event_type}_${event.title}`;
             if (seen.has(key)) {
                 duplicateIds.push(event.id);
             } else {
