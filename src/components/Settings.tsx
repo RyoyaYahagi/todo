@@ -375,58 +375,26 @@ export const Settings: React.FC<SettingsProps> = ({
                         ))}
                     </div>
 
-                    {/* 新規リスト追加フォーム */}
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                        <input
-                            type="text"
-                            id="new-list-name"
-                            placeholder="新しいリスト名..."
-                            style={{
-                                flex: 1,
-                                padding: '0.6rem',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: '8px',
-                                backgroundColor: 'var(--bg-secondary)',
-                                color: 'var(--text-primary)'
-                            }}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                    const input = e.target as HTMLInputElement;
-                                    if (input.value.trim()) {
-                                        const newList: TaskListType = {
-                                            id: crypto.randomUUID(),
-                                            name: input.value.trim(),
-                                            color: DEFAULT_LIST_COLORS[taskLists.length % DEFAULT_LIST_COLORS.length],
-                                            isDefault: false,
-                                            createdAt: Date.now()
-                                        };
-                                        onAddList(newList);
-                                        input.value = '';
-                                    }
-                                }
-                            }}
-                        />
-                        <button
-                            className="btn-primary"
-                            style={{ padding: '0.6rem 1rem' }}
-                            onClick={() => {
-                                const input = document.getElementById('new-list-name') as HTMLInputElement;
-                                if (input?.value.trim()) {
-                                    const newList: TaskListType = {
-                                        id: crypto.randomUUID(),
-                                        name: input.value.trim(),
-                                        color: DEFAULT_LIST_COLORS[taskLists.length % DEFAULT_LIST_COLORS.length],
-                                        isDefault: false,
-                                        createdAt: Date.now()
-                                    };
-                                    onAddList(newList);
-                                    input.value = '';
-                                }
-                            }}
-                        >
-                            + 追加
-                        </button>
-                    </div>
+                    {/* 新規リスト追加ボタン */}
+                    <button
+                        className="btn-primary"
+                        style={{ padding: '0.6rem 1rem', width: '100%' }}
+                        onClick={() => {
+                            const name = window.prompt('新しいリスト名を入力してください:');
+                            if (name?.trim()) {
+                                const newList: TaskListType = {
+                                    id: crypto.randomUUID(),
+                                    name: name.trim(),
+                                    color: DEFAULT_LIST_COLORS[taskLists.length % DEFAULT_LIST_COLORS.length],
+                                    isDefault: false,
+                                    createdAt: Date.now()
+                                };
+                                onAddList(newList);
+                            }
+                        }}
+                    >
+                        + 新しいリストを追加
+                    </button>
                 </section>
             )}
 
