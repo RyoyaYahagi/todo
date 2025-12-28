@@ -495,6 +495,24 @@ export const Settings: React.FC<SettingsProps> = ({
                         }}>
                             {localSettings.lineUserId ? '✅ LINE連携済み' : '⚠️ 未連携（友達追加してください）'}
                         </div>
+
+                        {/* フォールバック説明 */}
+                        <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
+                            💡 LINE APIの月間送信上限（200通）に達した場合、<br />
+                            Discord Webhook URLが設定されていれば自動的にDiscordへ通知します
+                        </p>
+
+                        {/* Discordフォールバック設定 */}
+                        <div style={{ width: '100%' }}>
+                            <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Discord Webhook URL（任意・フォールバック用）</label>
+                            <input
+                                type="text"
+                                value={localSettings.discordWebhookUrl}
+                                onChange={(e) => setLocalSettings({ ...localSettings, discordWebhookUrl: e.target.value })}
+                                placeholder="https://discord.com/api/webhooks/..."
+                                style={{ fontFamily: 'monospace', width: '100%', marginTop: '0.25rem' }}
+                            />
+                        </div>
                     </div>
                 )}
 
