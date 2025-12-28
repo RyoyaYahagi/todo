@@ -84,7 +84,8 @@ export interface WorkEvent {
 }
 
 export interface AppSettings {
-    discordWebhookUrl: string;
+    lineUserId: string;
+    discordWebhookUrl: string; // フォールバック用
     notifyOnDayBefore: boolean;
     notifyDayBeforeTime: string; // "21:00"
     notifyBeforeTask: boolean;
@@ -97,6 +98,7 @@ export interface AppSettings {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
+    lineUserId: '',
     discordWebhookUrl: '',
     notifyOnDayBefore: true,
     notifyDayBeforeTime: '21:00',

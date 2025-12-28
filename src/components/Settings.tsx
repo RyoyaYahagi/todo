@@ -3,7 +3,6 @@ import type { AppSettings, WorkEvent, TaskList as TaskListType } from '../types'
 import { DEFAULT_LIST_COLORS } from '../types';
 import { IcsParser } from '../lib/icsParser';
 import { GoogleCalendarClient } from '../lib/googleCalendar';
-import { sendDiscordNotification } from '../lib/discordWebhook';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme, type Theme } from '../hooks/useTheme';
 
@@ -38,7 +37,6 @@ export const Settings: React.FC<SettingsProps> = ({
     const { providerToken, signInWithGoogle } = useAuth();
     const [localSettings, setLocalSettings] = useState<AppSettings>(settings);
     const [importStatus, setImportStatus] = useState<string>('');
-    const [webhookTestStatus, setWebhookTestStatus] = useState<string>('');
     const [saveStatus, setSaveStatus] = useState<string>('');
     const [showIcsHelp, setShowIcsHelp] = useState(false);
     const [showDiscordHelp, setShowDiscordHelp] = useState(false);
@@ -164,30 +162,6 @@ export const Settings: React.FC<SettingsProps> = ({
             setImportStatus('❌ エラー: ファイルの読み取りに失敗しました');
         };
         reader.readAsText(file);
-    };
-
-    const handleWebhookTest = async () => {
-        const url = localSettings.discordWebhookUrl;
-
-        if (!url) {
-            setWebhookTestStatus('❌ Webhook URLを入力してください');
-            return;
-        }
-
-        // Discord Webhook URL形式のバリデーション
-        const discordWebhookPattern = /^https:\/\/discord\.com\/api\/webhooks\/\d+\/[\w-]+$/;
-        if (!discordWebhookPattern.test(url)) {
-            setWebhookTestStatus('❌ 正しいDiscord Webhook URL形式ではありません');
-            return;
-        }
-
-        setWebhookTestStatus('送信中...');
-        const result = await sendDiscordNotification(
-            url,
-            [{ id: 'test', taskId: 'test', title: 'テストタスク', priority: 5, createdAt: 0, scheduledTime: Date.now(), isCompleted: false, scheduleType: 'priority' }],
-            '【テスト通知】これはテスト通知です。'
-        );
-        setWebhookTestStatus(result ? '✅ 送信成功！Discordを確認してください' : '❌ 送信失敗 (URLを確認してください)');
     };
 
     return (
@@ -442,55 +416,61 @@ export const Settings: React.FC<SettingsProps> = ({
                 </div>
             </section>
 
-            {/* Discord通知セクション */}
+            {/* LINE通知セクション */}
             <section className="settings-section">
-                <h3>💬 Discord 通知設定</h3>
+                <h3>💬 LINE 通知設定</h3>
                 <p className="description">
-                    休日の前日夜やタスク開始前に、Discordへ通知を送信します。
+                    休日の前日夜やタスク開始前に、LINEへ通知を送信します。
                 </p>
 
-                <button
-                    className="btn-help"
-                    onClick={() => setShowDiscordHelp(!showDiscordHelp)}
-                >
-                    {showDiscordHelp ? '▲ 説明を閉じる' : '▼ Webhook URLの取得方法'}
-                </button>
-
-                {showDiscordHelp && (
-                    <div className="help-box">
-                        <h4>🔧 Webhook URLの作成手順</h4>
-                        <ol>
-                            <li>Discordアプリを開く</li>
-                            <li>通知を受け取りたいサーバーで、サーバー名をクリック</li>
-                            <li>「サーバー設定」→「連携サービス」→「ウェブフック」</li>
-                            <li>「新しいウェブフック」をクリック</li>
-                            <li>名前を設定（例：Holiday Todo）</li>
-                            <li>通知を送る<strong>チャンネル</strong>を選択</li>
-                            <li>「ウェブフックURLをコピー」をクリック</li>
-                            <li>コピーしたURLを下の入力欄に貼り付け</li>
-                        </ol>
-
-                        <h4>📢 通知タイミング</h4>
-                        <ul>
-                            <li><strong>前日 21:00</strong> - 翌日が休日の場合、タスク一覧を通知</li>
-                            <li><strong>タスク開始30分前</strong> - 各タスクの開始直前に通知</li>
-                        </ul>
-                        <p className="note">⚠️ 通知はこのアプリをブラウザで開いている間のみ動作します</p>
-                    </div>
-                )}
-
-                <div className="form-group">
-                    <label>Webhook URL</label>
-                    <input
-                        type="text"
-                        value={localSettings.discordWebhookUrl}
-                        onChange={(e) => setLocalSettings({ ...localSettings, discordWebhookUrl: e.target.value })}
-                        placeholder="https://discord.com/api/webhooks/..."
+                {/* LINE友達追加 */}
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '1rem',
+                    padding: '1.5rem',
+                    background: 'var(--card-bg)',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border-color)',
+                    marginBottom: '1rem'
+                }}>
+                    {/* QRコード画像 - 静的アセットとして配置 */}
+                    <img
+                        src="/line-qr.png"
+                        alt="LINE友達追加QRコード"
+                        style={{
+                            width: '150px',
+                            height: '150px',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border-color)'
+                        }}
+                        onError={(e) => {
+                            // QRコード画像がない場合はプレースホルダーを表示
+                            (e.target as HTMLImageElement).style.display = 'none';
+                        }}
                     />
-                </div>
-                <button onClick={handleWebhookTest} className="btn-secondary">🔔 通知テスト</button>
-                {webhookTestStatus && <p className="status-msg">{webhookTestStatus}</p>}
+                    <p style={{ margin: 0, textAlign: 'center', fontSize: '0.9rem' }}>
+                        👆 QRコードを読み取って友達追加してください
+                    </p>
 
+                    {/* 連携ステータス */}
+                    <div style={{
+                        padding: '0.5rem 1rem',
+                        borderRadius: '20px',
+                        background: localSettings.lineUserId
+                            ? 'rgba(76, 175, 80, 0.1)'
+                            : 'rgba(255, 152, 0, 0.1)',
+                        border: `1px solid ${localSettings.lineUserId ? '#4caf50' : '#ff9800'}`,
+                        color: localSettings.lineUserId ? '#4caf50' : '#ff9800',
+                        fontWeight: 'bold',
+                        fontSize: '0.85rem'
+                    }}>
+                        {localSettings.lineUserId ? '✅ LINE連携済み' : '⚠️ 未連携（友達追加してください）'}
+                    </div>
+                </div>
+
+                {/* 通知タイミング設定 */}
                 <div className="checkbox-group">
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                         <input
@@ -533,6 +513,34 @@ export const Settings: React.FC<SettingsProps> = ({
                         </select>
                         <span>に通知</span>
                     </label>
+                </div>
+
+                {/* Discordバックアップ設定（折りたたみ） */}
+                <div style={{ marginTop: '1.5rem' }}>
+                    <button
+                        className="btn-help"
+                        onClick={() => setShowDiscordHelp(!showDiscordHelp)}
+                    >
+                        {showDiscordHelp ? '▲ Discordバックアップを閉じる' : '▼ Discordバックアップ（任意）'}
+                    </button>
+
+                    {showDiscordHelp && (
+                        <div className="help-box" style={{ marginTop: '0.5rem' }}>
+                            <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                LINE APIの月間送信上限（200通）に達した場合、Discordへ通知を送信します。
+                            </p>
+                            <div className="form-group">
+                                <label>Discord Webhook URL</label>
+                                <input
+                                    type="text"
+                                    value={localSettings.discordWebhookUrl}
+                                    onChange={(e) => setLocalSettings({ ...localSettings, discordWebhookUrl: e.target.value })}
+                                    placeholder="https://discord.com/api/webhooks/..."
+                                    style={{ fontFamily: 'monospace' }}
+                                />
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="action-buttons" style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
