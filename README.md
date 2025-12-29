@@ -1,6 +1,6 @@
 # Holiday Todo App
 
-🔗 **アプリURL**: [https://todo-d93objcuv-yappas-projects.vercel.app](https://todo-d93objcuv-yappas-projects.vercel.app)
+🔗 **アプリURL**: [https://holiday-todo-two-teal-11.vercel.app/](https://holiday-todo-two-teal-11.vercel.app/)
 
 予定表（Googleカレンダーや.icsファイル）に基づいて、休日にタスクを自動でスマートにスケジューリングする Todo アプリケーションです。
 不規則なシフト勤務の方でも、「次の休みにやること」を効率的に管理・消化できるよう設計されています。
